@@ -6,7 +6,7 @@ Choose Suzune, Sandy, or Amamiya as the partner across the table. Work together 
 
 [**Play in your browser**](https://letztek.github.io/guandan-web/?lang=en) · [Install locally](#install-and-play-locally)
 
-![Partner selection with Suzune, Sandy, and Amamiya](docs/images/characters.jpg)
+![Illustrated poster for Truce Day at the Crystal Pavilion. Suzune plays the seven of hearts as Sandy brings tea and Amamiya watches.](docs/images/truce-day-zh-hant.jpg)
 
 ## Basic rules
 

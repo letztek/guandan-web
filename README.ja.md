@@ -6,7 +6,7 @@
 
 [**ブラウザで遊ぶ**](https://letztek.github.io/guandan-web/?lang=ja) · [パソコンにインストール](#パソコンにインストールして遊ぶ)
 
-![鈴音、サンディ、天宮の相棒選択画面](docs/images/characters.jpg)
+![『水晶亭の休戦日』のキービジュアル。鈴音がハートの7を出し、サンディがお茶を運び、天宮が卓で見守っている。](docs/images/truce-day-ja.jpg)
 
 ## 基本ルール
 

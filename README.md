@@ -6,7 +6,7 @@
 
 [**立即遊玩**](https://letztek.github.io/guandan-web/?lang=zh-Hant) · [在電腦上安裝](#在電腦上安裝與遊玩)
 
-![選隊友畫面：鈴音、珊迪和天宮](docs/images/characters.jpg)
+![《水晶亭的休戰日》宣傳插畫。鈴音打出紅心 7，珊迪端著茶，天宮在桌邊觀牌。](docs/images/truce-day-zh-hant.jpg)
 
 ## 基本規則
 
