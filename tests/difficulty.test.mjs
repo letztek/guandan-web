@@ -109,3 +109,24 @@ test('advanced can secure two successive leads and keep a lower last card for fi
   }
   assert.deepEqual(game.finish, [0])
 })
+
+test('standard spends the lowest proven cover against a short opponent and accounts for bombs and jokers',async () => {
+  const {quickTeamSuggestion}=await import('../src/team-coach.ts')
+  function follow(opponents) {
+    const state=publicEndgame([
+      ['CK-0','DA-0','S3-0','D6-0','C9-0','SJ-0'],opponents,
+      ['C6-1','D7-1','H8-0','S9-1','CJ-1'],['S7-0','SQ-0'],
+    ])
+    state.turn=3
+    const queen=state.hands[3].find(c=>c.rank==='Q')
+    const game=takeTurn(state,3,allMoves([queen],'2',true)[0])
+    const {hand,level,target,table}=adviceInput(game)
+    return quickTeamSuggestion(hand,level,target,table)
+  }
+  const safe=follow(['C3-0','D4-0','H5-0'])
+  assert.equal(safe.move?.label,'K')
+  assert.match(safe.reason,/這手就能守住牌權/)
+  for (const cards of [['JBJ-0','D4-0','H5-0'],['C5-0','D5-0','S5-0','H5-0']]) {
+    assert.doesNotMatch(follow(cards).reason,/這手就能守住牌權/)
+  }
+})

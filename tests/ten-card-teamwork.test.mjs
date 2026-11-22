@@ -57,20 +57,20 @@ test('ten-card decisions and explanations are identical when the concealed holdi
   }
 })
 
-test('the ten-card warning applies to the advanced ally and stops once both opponents have over ten', () => {
+test('advanced seats on both teams start watching at ten', () => {
   for (const count of [5,9,10,11]) {
     const game = tenCardGame('block',0,count)
     assert.equal(game.hands[1].length,count)
     const standard = adviseTurn(game,'standard','support')
     assert.doesNotMatch(standard.reason,/對手剩 \d+ 張/)
     assert.doesNotMatch(adviseTurn(game,'beginner','support').reason,/對手剩 \d+ 張/)
-    if (count===11) assert.deepEqual(advice(game),standard)
+    if (count===11) assert.doesNotMatch(advice(game).reason,/對手剩 \d+ 張/)
     else assert.match(advice(game).reason,new RegExp('對手剩 '+count+' 張'))
   }
-  // Rotate the exact same observable position to each opposing seat. Their
-  // existing advanced policy still uses its previous endgame window.
+  // The opposing seats get exactly the same warning window as the partner.
   for (const offset of [1,3]) {
     const enemy = tenCardGame('block',offset)
-    assert.deepEqual(advice(enemy),adviseTurn(enemy,'standard','support'))
+    assert.match(advice(enemy).reason,/對手剩 10 張/)
+    assert.doesNotMatch(adviseTurn(enemy,'standard','support').reason,/對手剩 \d+ 張/)
   }
 })

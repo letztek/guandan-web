@@ -84,7 +84,7 @@ function continuePlay(hand: Card[], level: string, turn: number, target: Move | 
 }
 
 export function rollout(world: Card[][], level: string, target: Move | null, table: PublicTable,
-    first: Move | null, cache: MoveCache, watchTen = false) {
+    first: Move | null, cache: MoveCache, watchTen = false, advanced = false) {
   const root = table.seat, mate = partner(root)
   // Reuse actual match transitions for pass re-entry, wind and settlement.
   // Input hands here are always synthetic deals conditioned on public faces.
@@ -95,7 +95,12 @@ export function rollout(world: Card[][], level: string, target: Move | null, tab
     ({...card, id:'public-' + card.suit + '-' + card.rank + '-' + i})))
   let matePlays = 0, mateLeads = 0, ownLeads = 0
   let nextRootLead: Move | null = null
-  for (let ply = 0; ply < 36 && game.trick <= 3 && game.phase === 'play'; ply++) {
+  for (let ply = 0; ply < 36 && game.phase === 'play'; ply++) {
+    // Once first place is settled, see whether its partner can also go out.
+    // Two extra tricks are useful only when someone still in play is close.
+    const raceForPlaces=advanced && game.finish.length>0 &&
+      game.hands.some(cards=>cards.length>0 && cards.length<=6)
+    if (game.trick>(raceForPlaces ? 5 : 3)) break
     const turn = game.turn
     const move = ply === 0 ? first : continuePlay(game.hands[turn], level, turn, game.target,
       game.holder, game.pending, game.hands.map(cards => cards.length), shown, cache)
@@ -149,5 +154,10 @@ export function rollout(world: Card[][], level: string, target: Move | null, tab
       }
     }
   }
-  return {score, mateOut, rootOut, matePlays, mateLeads, ownLeads, nextRootLead, enemyFirst, enemyReady, tricks:game.trick - 1}
+  const teamFirst=Number(finish.length>0 && sameTeam(finish[0]))
+  const teamDouble=Number(teamFirst && finish.length>1 && sameTeam(finish[1]))
+  const enemyDouble=Number(enemyFirst && finish.length>1 && !sameTeam(finish[1]))
+  const teamThird=Number(finish.length>2 && sameTeam(finish[2]))
+  return {score, mateOut, rootOut, matePlays, mateLeads, ownLeads, nextRootLead, enemyFirst, enemyReady,
+    teamFirst, teamDouble, enemyDouble, teamThird, tricks:game.trick - 1}
 }

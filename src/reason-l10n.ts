@@ -17,6 +17,9 @@ export function translateReason(text: string, language: Exclude<Language, 'zh-Ha
 }
 
 const dynamic: Array<readonly [RegExp, string, string]> = [
+  [/這手打出後，餘牌可安排成 (\d+) 手。/g,
+    'After this play, your remaining cards can be grouped into $1 plays. ',
+    'この手を出すと、残りの札は$1手にまとめられます。'],
   [/依已出牌、明牌與餘張，能連續保住牌權。先出(.+?)收圈，再由(.+?)守住下一圈，最後領出(.+?)(?=，)/g,
     'The public cards and hand sizes show a safe line. Win this trick with $1, keep the lead with $2, then lead $3',
     '出た札、公開された札、残り枚数から安全に上がれます。$1でこのトリックを取り、$2で次も取り、最後に$3を出し'],
@@ -88,6 +91,14 @@ const dynamic: Array<readonly [RegExp, string, string]> = [
 ]
 
 const reasons: Record<string, readonly [string, string]> = {
+  '隊友已出完，過牌就能接風，下一圈由你領出。': ['Your partner is out. Pass to inherit the next lead. ', 'ペアは上がっています。パスすれば先手を引き継げます。'],
+  '隊友已出完，依公開牌可確定這手過牌會給對手直接走完的機會。': ['Your partner is out. The public cards show that passing would let the opponent go out immediately. ', 'ペアはすでに上がっています。公開札から、ここでパスすると相手がすぐに上がれると分かります。'],
+  '這樣能提高我方守住三游的機會。': ['This gives your team a better chance to secure third place. ', 'この手でチームが3位を確保しやすくなります。'],
+  '依已出牌、明牌與餘張，這手就能守住牌權。': ['The played cards, exposed cards and hand sizes show this play will hold the lead. ', '出た札と公開札、残り枚数から、この手で先手を取れます。'],
+  '留下炸彈，對手再搶牌權時還能攔。': ['Keep the bomb to challenge an opponent who takes the lead later. ', 'ボムを温存し、後で相手が先手を取ったときに使えます。'],
+  '花掉控牌後，我方在更多推演裡包辦前兩名。': ['Spending the control cards gave your team both top places in more of the simulated deals. ', '切り札を使う方が、試算ではチームで1位と2位を取れる展開が増えました。'],
+  '花掉控牌後，我方在更多推演裡拿到頭游。': ['Spending the control cards gave your team first place in more of the simulated deals. ', '切り札を使う方が、試算ではチームが1位になる展開が増えました。'],
+  '這樣能降低對手包辦前兩名的機會。': ['In the simulated deals the opponents took both top places less often. ', '試算では相手に1位と2位を取られる展開が減りました。'],
   '兩張小王都已出過。': ['Both small jokers have been played. ', '小ジョーカーは2枚とも出ています。'],
   '，替我方拿頭游。': [' to finish first for your team. ', 'て、チームの1位を取ります。'],
   '，我方就能包辦頭游、二游。': [' to take both first and second for your team. ', 'て、チームで1、2位を取ります。'],

@@ -148,5 +148,5 @@ export function partnerResponse(hand: Card[], level: string, target: Move | null
   }
   const reason = warning + '用' + names[move.kind] + ' ' + move.label + ' 壓過隊友，' + method + '。' + keep +
     (exit ? '若能收圈，下圈可領出' + names[exit.kind] + ' ' + exit.label + '，一次出完。' : '若能收圈，下圈就由我方領出。')
-  return {move, reason}
+  return {move, reason, blocksCertainExit: certain && best.danger === 0}
 }

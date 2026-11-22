@@ -92,9 +92,9 @@ function strengthDescription(difficulty: Difficulty) {
     case 'standard': return t('看各席餘張與已出的牌，兼顧保留牌型和幫隊友先走。',
       'Tracks hand sizes and played cards, balances keeping combinations intact with helping its partner go out.',
       '残り枚数と出た札を見て、役を温存しながらペアの上がりを助けます。')
-    case 'advanced': return t('對手剩十張以內就開始多想幾圈，會用已出的牌判斷哪些牌還能被壓，規劃收尾順序。',
-      'Looks several tricks ahead when a rival has ten cards or fewer, and uses played cards to plan a safe finish.',
-      '相手が残り10枚以下になると数トリック先を読み、公開された札から安全な上がり順を考えます。')
+    case 'advanced': return t('從起手規劃收尾。對手剩十張以內時，會參考各家之前的領牌和過牌，推算搶牌或讓隊友先走的後果。',
+      'Plans how to finish from the opening hand. When a rival has ten cards or fewer, weighs past leads and passes before contesting a trick or leaving it to a partner.',
+      '配られた札から上がりまでの手順を考えます。相手の残りが10枚以下になると、各席の過去の先手やパスを参考に、勝負するかペアに任せるかを読みます。')
   }
 }
 

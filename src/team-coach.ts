@@ -5,19 +5,29 @@ import { controlCost, preferredFullHouses } from './control-cost.ts'
 import type { Difficulty } from './difficulty.ts'
 import type { PlayStyle } from './play-style.ts'
 import { partnerResponse, unseenCards } from './partner-tactics.ts'
-import { publicFinish } from './public-finish.ts'
+import { controlsFromPublicCards, publicFinish } from './public-finish.ts'
+import { advancedHandPlanner } from './advanced-hand-plan.ts'
+import type { PublicSeatHistory } from './public-behavior.ts'
 
 type Face = Pick<Card,'rank'|'suit'>
 // No hidden hand is part of the strategy API. shown contains only still-held
 // cards disclosed by the cut or completed exchanges. played covers this deal.
 export type PublicTable = {
   seat: number, counts: number[], holder: number, pending: number[], finish: number[],
-  shown: Face[][], played: Face[]
+  shown: Face[][], played: Face[], history?: PublicSeatHistory[]
 }
 function bombCost(m: Move) {
   return m.kind==='kings' ? 56 : m.kind==='flush' ? 37 : m.kind==='bomb' ? 23+3*m.cards.length : 0
 }
 function nextPlayers(seat: number) { return [1,2,3].map(i=>(seat+i)%4) }
+
+function spendsReservedControl(move: Move, hand: Card[], level: string) {
+  if (bombCost(move)) return true
+  const spent = move.cards.filter(card => card.rank === level).length
+  if (!spent) return false
+  const held = hand.filter(card => card.rank === level).length
+  return held >= 2 && held - spent < 2
+}
 
 function attachmentReason(move: Move|null, moves: Move[], hand: Card[], level: string, reason: string) {
   if (hand.filter(card=>card.rank===level).length<2 || move?.cards.length===hand.length) return reason
@@ -30,7 +40,7 @@ function attachmentReason(move: Move|null, moves: Move[], hand: Card[], level: s
     ' 三張可以單出，留下級牌對 '+level+' 接之後的對子。')
 }
 
-function quickDecision(hand: Card[], level: string, target: Move|null, table: PublicTable, style?: PlayStyle) {
+function quickDecision(hand: Card[], level: string, target: Move|null, table: PublicTable, style?: PlayStyle, advanced=false) {
   const moves=allMoves(hand,level), legal=preferredFullHouses(moves.filter(m=>beats(m,target)),hand,level)
   const {seat,counts,holder,pending,finish,shown}=table
   const mate=(seat+2)%4, opponents=nextPlayers(seat).filter(s=>s!==mate && counts[s]>0)
@@ -44,8 +54,16 @@ function quickDecision(hand: Card[], level: string, target: Move|null, table: Pu
       !finish.length?'這手能出完，直接替我方拿下頭游。':'這手能出完，直接取得本副下一個名次。'
     return reply(best,goal,true)
   }
+  if (advanced && target && holder===mate && counts[mate]===0) {
+    const onlyTwoActive=counts.filter(count=>count>0).length===2
+    if (pending.length===1 || (onlyTwoActive && hand.length<=8 && controlsFromPublicCards(hand,level,table)(target))) {
+      return reply(null,'隊友已出完，過牌就能接風，下一圈由你領出。',true)
+    }
+  }
   const response=style && partnerResponse(hand,level,target,table,legal,style)
-  if (response) return reply(response.move,response.reason,true)
+  if (response && (!advanced || !response.move || !spendsReservedControl(response.move,hand,level) || response.blocksCertainExit)) {
+    return reply(response.move,response.reason,true)
+  }
   if (!legal.length) return reply(null,'手上沒有能壓過桌面的牌，這手過牌。',true)
   const unknown=unseenCards(hand,table)
   // Local placeholders let the rules engine distinguish two equal public faces.
@@ -99,6 +117,20 @@ function quickDecision(hand: Card[], level: string, target: Move|null, table: Pu
   const ownPlan=new Map<string,Move|null>()
   const leader=holder<0?-1:counts[holder]?holder:(holder+2)%4
   const shortLeader=!!target && opponents.includes(leader) && counts[leader]<=2
+  // Only rank replies that can be proved to hold. An unseen joker or a bomb
+  // that fits a live hand prevents this bonus even when both small jokers are out.
+  let cheapestCover: Move | undefined
+  if (shortLeader && !partnerHolds && target && counts.reduce((sum,n)=>sum+n,0)-hand.length<=20) {
+    const covers=legal.filter(m=>m.kind===target.kind && !bombCost(m) && !controlCost(m,level))
+    if (covers.length && legal.length>1) {
+      const controls=controlsFromPublicCards(hand,level,table)
+      cheapestCover=covers.sort((a,b)=>a.value-b.value).find(controls)
+    }
+  }
+  // When a short hand or a finished partner makes the next trick decisive,
+  // give the handoff/placement evaluation priority over packing our own cards.
+  const handPlan=advanced && !finish.length && hand.length>5 && counts[mate]>4 &&
+    opponents.every(s=>counts[s]>4) ? advancedHandPlanner(hand,level,style) : undefined
   let best: {move: Move|null,reason: string,score: number}|undefined
   if (target) {
     const weight=feed(target,afterPass)
@@ -109,6 +141,7 @@ function quickDecision(hand: Card[], level: string, target: Move|null, table: Pu
   for (const m of legal) {
     const danger=risk(m,afterPlay)
     if (partnerHolds && passingRisk-danger<.2) continue
+    if (advanced && partnerHolds && spendsReservedControl(m,hand,level)) continue
     const left=hand.length-m.cards.length
     const reserve=style==='balanced' ? 1.5 : 1
     const tempo=style==='attack' ? 4 : 2.8
@@ -125,6 +158,11 @@ function quickDecision(hand: Card[], level: string, target: Move|null, table: Pu
       score+=points
       if (points>reasonWeight) {reason=explanation;reasonWeight=points}
     }
+    if (handPlan) {
+      const plan=handPlan(m)
+      feature(plan.score,'這手打出後，餘牌可安排成 '+plan.turns+' 手。')
+    }
+    if (m===cheapestCover) feature(15,'依已出牌、明牌與餘張，這手就能守住牌權。')
     if (left<=10) {
       const key=m.cards.map(uid).sort().join(',')
       if (!ownPlan.has(key)) ownPlan.set(key,allMoves(remaining(hand,m),level,true)[0]??null)
@@ -149,11 +187,14 @@ function quickDecision(hand: Card[], level: string, target: Move|null, table: Pu
     }
     if (!best || score>best.score) best={move:m,reason,score}
   }
+  if (handPlan && best?.move && opponents.every(s=>counts[s]>10) && !best.reason.includes('餘牌可安排成')) {
+    best.reason+='這手打出後，餘牌可安排成 '+handPlan(best.move).turns+' 手。'
+  }
   return reply(best!.move,attachmentReason(best!.move,moves,hand,level,best!.reason))
 }
 
-export function quickTeamSuggestion(hand: Card[], level: string, target: Move|null, table: PublicTable, style?: PlayStyle) {
-  return quickDecision(hand,level,target,table,style).advice
+export function quickTeamSuggestion(hand: Card[], level: string, target: Move|null, table: PublicTable, style?: PlayStyle, advanced=false) {
+  return quickDecision(hand,level,target,table,style,advanced).advice
 }
 
 // Compare the same possible deals for every candidate so differences reflect
@@ -182,11 +223,12 @@ function candidatePlays(legal: Move[], baseline: Move|null, target: Move|null) {
 }
 
 function projectChoice(worlds: Card[][][], level: string, target: Move|null, table: PublicTable,
-  move: Move|null, cache: Map<string,Move[]>, watchTen: boolean) {
+  move: Move|null, cache: Map<string,Move[]>, watchTen: boolean, advanced: boolean) {
   let score = 0, rootOut = 0, mateOut = 0, matePlays = 0, enemyFirst = 0, enemyClose = 0
+  let teamFirst = 0, teamDouble = 0, enemyDouble = 0, teamThird = 0
   const nextLeads = new Map<string,number>()
   for (const hands of worlds) {
-    const line = rollout(hands, level, target, table, move, cache, watchTen)
+    const line = rollout(hands, level, target, table, move, cache, watchTen, advanced)
     score += line.score
     mateOut += line.mateOut
     rootOut += line.rootOut
@@ -196,12 +238,38 @@ function projectChoice(worlds: Card[][][], level: string, target: Move|null, tab
     }
     matePlays += line.matePlays
     enemyFirst += line.enemyFirst
+    teamFirst += line.teamFirst
+    teamDouble += line.teamDouble
+    enemyDouble += line.enemyDouble
+    teamThird += line.teamThird
     enemyClose += line.enemyFirst || line.enemyReady
   }
   const repeatedLead = [...nextLeads].find(([,n])=>n>worlds.length/2)?.[0]
-  return {move, score:score/worlds.length-(move?controlCost(move,level):0), rootOut, mateOut, matePlays, enemyFirst, enemyClose, repeatedLead}
+  return {move, score:score/worlds.length-(move?controlCost(move,level):0), rootOut, mateOut, matePlays, enemyFirst, enemyClose, teamFirst, teamDouble, enemyDouble, teamThird, repeatedLead}
 }
 type Projection = ReturnType<typeof projectChoice>
+
+// A speculative extra lead cannot, by itself, pay for bombing a partner.
+// Compare actual places reached in the same deals, against leaving the lead alone.
+function earnsCostlyRaise(p: Projection, pass: Projection, cheaper: Projection[], table: PublicTable,
+    target: Move, hand: Card[], level: string, samples: number) {
+  const responders=table.pending.slice(1).filter(seat=>seat%2!==table.seat%2)
+  if (!responders.length) return false
+  const urgent=responders.some(seat=>table.counts[seat]<=4 || table.counts[seat]===target.cards.length ||
+    table.shown[seat].length===table.counts[seat])
+  if (!urgent) {
+    const left=remaining(hand,p.move!)
+    if (left.length>10 || !allMoves(left,level,true).length) return false
+  }
+  if (cheaper.some(q=>q.enemyFirst<=p.enemyFirst && q.teamFirst>=p.teamFirst &&
+    q.teamDouble>=p.teamDouble && q.enemyDouble<=p.enemyDouble &&
+    (table.finish.length!==2 || q.teamThird>=p.teamThird))) return false
+  const margin=Math.ceil(samples/4)
+  return p.enemyFirst<=pass.enemyFirst && p.teamFirst>=pass.teamFirst && (
+    pass.enemyFirst-p.enemyFirst>=margin || p.teamFirst-pass.teamFirst>=margin ||
+    p.teamDouble-pass.teamDouble>=margin || pass.enemyDouble-p.enemyDouble>=margin ||
+    (table.finish.length===2 && p.teamThird-pass.teamThird>=margin))
+}
 
 function planReason(table: PublicTable, level: string, target: Move|null, chosen: Projection,
     alternative: Projection|undefined, baseline: ReturnType<typeof quickTeamSuggestion>, watchCount?: number) {
@@ -271,7 +339,7 @@ export function beginnerSuggestion(hand: Card[], level: string, target: Move|nul
   const finisher=legal.find(move=>move.cards.length===hand.length)
   if (finisher) return {move:finisher,reason:'這手可以出完。',moves}
   const response=style && partnerResponse(hand,level,target,table,legal,style)
-  if (response) return {...response,moves}
+  if (response) return {move:response.move,reason:response.reason,moves}
   if (target && table.holder===(table.seat+2)%4) return {move:null,reason:'隊友目前最大，先過牌。',moves}
   function cost(move:Move) {
     const partnerCount=table.counts[(table.seat+2)%4]
@@ -294,7 +362,8 @@ export function beginnerSuggestion(hand: Card[], level: string, target: Move|nul
 export function teamSuggestion(hand: Card[], level: string, target: Move|null, table: PublicTable,
     strength:Difficulty='standard', style?:PlayStyle) {
   if (strength==='beginner') return beginnerSuggestion(hand,level,target,table,style)
-  const {advice:baseline,settled} = quickDecision(hand, level, target, table, style)
+  const advanced=strength==='advanced'
+  const {advice:baseline,settled} = quickDecision(hand, level, target, table, style, advanced)
   if (settled) return baseline
   const legal = preferredFullHouses(baseline.moves.filter(m=>beats(m,target)),hand,level)
   const protectedPlan = strength==='advanced' && publicFinish(hand,level,target,table,legal)
@@ -305,9 +374,8 @@ export function teamSuggestion(hand: Card[], level: string, target: Move|null, t
   // defenses before either opponent goes out, using the same public boundary.
   const receivingHandoff = hand.length===2 && !baseline.moves.some(m=>m.kind==='pair')
   const shortestOpponent = Math.min(...table.counts.filter((count,seat)=>seat%2!==table.seat%2 && count>0))
-  // Seat 2 is the human player's partner. Once a rival reports ten, compare
-  // candidate plays on the same unknown deals, including passing to the ally.
-  const watchTen = strength==='advanced' && table.seat===2 && shortestOpponent>=5 && shortestOpponent<=10
+  // Every advanced seat starts watching its own opponents at the same threshold.
+  const watchTen = advanced && shortestOpponent>=5 && shortestOpponent<=10
   const handoff = partnerCount>0 && (partnerCount<=4 || receivingHandoff)
   const advancedEndgame = strength==='advanced' && (shortestOpponent<=4 || watchTen || hand.length<=5 || (partnerCount>0 && partnerCount<=6))
   if ((!handoff && !advancedEndgame) || baseline.move?.cards.length===hand.length) return baseline
@@ -316,13 +384,22 @@ export function teamSuggestion(hand: Card[], level: string, target: Move|null, t
   // Limit the number of full three-trick projections in these larger positions.
   const earlyWarning = watchTen && hand.length>5 && (partnerCount===0 || partnerCount>6)
   const samples = earlyWarning && Math.max(...table.counts)>16 ? 8 : strength==='advanced' ? 20 : 12
-  const worlds = samplePublicHands(hand, level, target, table, samples)
+  const worlds = samplePublicHands(hand, level, target, table, samples, advanced)
   if (!worlds.length) return baseline
 
   const cache = new Map<string,Move[]>()
   const choices = candidatePlays(legal, baseline.move, target)
-  const projections = choices.map(m=>projectChoice(worlds,level,target,table,m,cache,watchTen))
+  const allProjections = choices.map(m=>projectChoice(worlds,level,target,table,m,cache,watchTen,advanced))
+  const pass=allProjections.find(p=>p.move===null)
+  const allyLeads=target && table.holder===(table.seat+2)%4
+  let projections=allProjections
+  if (advanced && allyLeads && pass) {
+    const cheaper=allProjections.filter(p=>p.move && !spendsReservedControl(p.move,hand,level))
+    projections=allProjections.filter(p=>p===pass || cheaper.includes(p) ||
+      earnsCostlyRaise(p,pass,cheaper,table,target,hand,level,worlds.length))
+  }
   for (const p of projections) {
+    if (advanced) p.score+=25*(p.teamDouble-p.enemyDouble)/worlds.length
     if (style==='support') p.score+=(12*p.mateOut+2*p.matePlays)/worlds.length
     if (style==='attack') p.score+=12*p.rootOut/worlds.length
     if (style==='balanced' && p.move) p.score-=.35*bombCost(p.move)+3*p.move.cards.filter(c=>wild(c,level)).length
@@ -335,6 +412,15 @@ export function teamSuggestion(hand: Card[], level: string, target: Move|null, t
   }
   const others = projections.filter(p=>p!==best).sort((a,b)=>b.score-a.score)
   const comparison = best.move && target ? others.find(p=>!p.move) : others[0]
-  const reason = planReason(table,level,target,best,comparison,baseline,watchTen ? shortestOpponent : undefined)
+  let reason = planReason(table,level,target,best,comparison,baseline,watchTen ? shortestOpponent : undefined)
+  if (advanced && allyLeads && !best.move && legal.some(m=>bombCost(m)>0)) {
+    reason+='留下炸彈，對手再搶牌權時還能攔。'
+  }
+  if (advanced && allyLeads && pass && best.move && spendsReservedControl(best.move,hand,level)) {
+    if (best.teamDouble>pass.teamDouble) reason+='花掉控牌後，我方在更多推演裡包辦前兩名。'
+    else if (best.teamFirst>pass.teamFirst) reason+='花掉控牌後，我方在更多推演裡拿到頭游。'
+    else if (best.enemyDouble<pass.enemyDouble) reason+='這樣能降低對手包辦前兩名的機會。'
+    else if (table.finish.length===2 && best.teamThird>pass.teamThird) reason+='這樣能提高我方守住三游的機會。'
+  }
   return {...baseline, move:best.move, reason:attachmentReason(best.move,baseline.moves,hand,level,reason)}
 }

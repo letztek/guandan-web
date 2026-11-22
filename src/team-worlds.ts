@@ -1,5 +1,6 @@
 import { deck, uid, type Card, type Move } from './rules.ts'
 import type { PublicTable } from './team-coach.ts'
+import { dealLikelihood } from './public-behavior.ts'
 
 type Face = Pick<Card, 'suit' | 'rank'>
 const faceKey = (card: Face) => card.suit + ':' + card.rank
@@ -17,7 +18,8 @@ function generator(observation: string) {
   }
 }
 
-export function samplePublicHands(hand: Card[], level: string, target: Move | null, table: PublicTable, samples = 10): Card[][][] {
+export function samplePublicHands(hand: Card[], level: string, target: Move | null, table: PublicTable,
+    samples = 10, inferFromHistory = false): Card[][][] {
   const { counts, played, shown, seat } = table
   if (counts.length !== 4 || shown.length !== 4 || counts[seat] !== hand.length ||
       counts.some((n, s) => !Number.isInteger(n) || n < shown[s].length || n > 27) ||
@@ -59,23 +61,37 @@ export function samplePublicHands(hand: Card[], level: string, target: Move | nu
 
   const unseen = [...pool.values()].flat()
   const missing = counts.map((count, s) => count - known[s].length)
-  const random = generator([level, seat, counts.join(','), table.holder, table.pending.join(','),
+  const observation = [level, seat, counts.join(','), table.holder, table.pending.join(','),
     table.finish.join(','), target?.kind, target?.value, target?.cards.length, faceList(hand),
-    faceList(played), ...shown.map(faceList)].join('|'))
-  const worlds: Card[][][] = []
-  const ways = missing.filter(Boolean).length <= 1 ? Math.min(samples, 1) : samples
-  for (let sample = 0; sample < ways; sample++) {
+    faceList(played), ...shown.map(faceList)].join('|')
+  function deal(random: () => number) {
     const draw = [...unseen]
     for (let i = draw.length - 1; i > 0; i--) {
       const j = Math.floor(random() * (i + 1))
       ;[draw[i], draw[j]] = [draw[j], draw[i]]
     }
     let dealt = 0
-    worlds.push(known.map((cards, s) => {
+    return known.map((cards, s) => {
       const result = cards.concat(draw.slice(dealt, dealt + missing[s]))
       dealt += missing[s]
       return result
-    }))
+    })
+  }
+  const worlds: Card[][][] = []
+  const ways = missing.filter(Boolean).length <= 1 ? Math.min(samples, 1) : samples
+  const likelihood = inferFromHistory && ways > 1 ? dealLikelihood(table.history,missing,level) : null
+  const random = generator(observation)
+  const alternativeRandom = likelihood && generator(observation + '|behavior')
+  for (let sample = 0; sample < ways; sample++) {
+    let world = deal(random)
+    if (likelihood && alternativeRandom) {
+      const other = deal(alternativeRandom)
+      const base = likelihood(world), alternative = likelihood(other)
+      // For an unordered pair, each deal is retained with probability
+      // proportional to its weight. Ties preserve the original uniform sample.
+      if (alternativeRandom() < (alternative - base) / (alternative + base)) world = other
+    }
+    worlds.push(world)
   }
   return worlds
 }

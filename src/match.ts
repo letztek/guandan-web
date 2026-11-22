@@ -2,6 +2,7 @@ import { allMoves, beats, deck, describe, names, power, ranks, remaining, uid, w
 import { teamSuggestion, type PublicTable } from './team-coach.ts'
 import type { Difficulty } from './difficulty.ts'
 import type { PlayStyle } from './play-style.ts'
+import { publicSeatHistory } from './public-behavior.ts'
 
 export const seats = [0, 1, 2, 3]
 export const seatName = ['你', '右家', '對家', '左家']
@@ -162,7 +163,7 @@ export function giveCard(s: Match, seat: number, card: Card): Match {
   return next
 }
 
-export function publicTable(s: Match,seat=s.turn): PublicTable {
+export function publicTable(s: Match,seat=s.turn,withHistory=false): PublicTable {
   const shown: PublicTable['shown']=[[],[],[],[]], played: PublicTable['played']=[]
   function consume(owner: number,c: Card) {
     const index=shown[owner].findIndex(e=>e.rank===c.rank && e.suit===c.suit)
@@ -179,18 +180,20 @@ export function publicTable(s: Match,seat=s.turn): PublicTable {
     }
   }
   // Only lengths cross this boundary. Double tribute choices in progress are private.
-  return {seat, counts:s.hands.map(h=>h.length), holder:s.holder, pending:[...s.pending], finish:[...s.finish], shown, played}
+  return {seat, counts:s.hands.map(h=>h.length), holder:s.holder, pending:[...s.pending], finish:[...s.finish],
+    shown, played, ...(withHistory ? {history:publicSeatHistory(s.events,s.trick)} : {})}
 }
 export function adviceInput(s: Match, strength: Difficulty='standard', style?: PlayStyle) {
   // A public declaration needs its kind, comparison value and number of cards.
   // Give visible faces local IDs so another seat's physical copies stay private.
   const target=s.target && {...s.target,as:{},cards:s.target.cards.map(({suit,rank},i)=>({suit,rank,id:'table-'+i}))}
-  return {hand:s.hands[s.turn],level:s.level,target,table:publicTable(s),...(strength==='standard' ? {} : {strength}),...(style ? {style} : {})}
+  return {hand:s.hands[s.turn],level:s.level,target,table:publicTable(s,s.turn,strength==='advanced'),
+    ...(strength==='standard' ? {} : {strength}),...(style ? {style} : {})}
 }
 export type TeamAdviceInput = ReturnType<typeof adviceInput>
 export function adviseTurn(s: Match, strength: Difficulty='standard', style?: PlayStyle) {
-  const {hand,level,target,table}=adviceInput(s)
-  return teamSuggestion(hand,level,target,table,strength,style)
+  const input=adviceInput(s,strength,style)
+  return teamSuggestion(input.hand,input.level,input.target,input.table,input.strength,input.style)
 }
 export function botStep(s: Match, strength: Difficulty='standard', style?: PlayStyle): Match {
   if (s.phase==='result') return s

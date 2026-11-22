@@ -26,8 +26,9 @@ export function useTeamAdvice(input: TeamAdviceInput | null) {
       if (!active || settled) return
       worker?.terminate()
       const {hand, level, target, table, strength, style} = input!
-      const suggest=strength==='beginner' ? beginnerSuggestion : quickTeamSuggestion
-      finish(suggest(hand, level, target, table, style), true)
+      const advice=strength==='beginner' ? beginnerSuggestion(hand,level,target,table,style) :
+        quickTeamSuggestion(hand,level,target,table,style,strength==='advanced')
+      finish(advice, true)
     }
 
     try {
