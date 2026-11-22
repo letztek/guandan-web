@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from './ui'
+import { translate as t } from './i18n'
 import './room-music.css'
 
 // An original 16-bar tune in 6/8. Each row gives a bass note, the three
@@ -281,9 +282,9 @@ export function useRoomMusic(active = true) {
 }
 
 export function RoomMusicButton({enabled,onToggle}:{enabled:boolean,onToggle:()=>void}) {
-  return <button type="button" className="room-music-button" aria-label="背景音樂" aria-pressed={enabled}
-      title={enabled?'關閉背景音樂':'開啟背景音樂'} onClick={onToggle}>
+  return <button type="button" className="room-music-button" aria-label={t('背景音樂','Background music','BGM')} aria-pressed={enabled}
+      title={enabled?t('關閉背景音樂','Mute background music','BGMをオフにする'):t('開啟背景音樂','Play background music','BGMをオンにする')} onClick={onToggle}>
     <Icon name={enabled?'sound':'mute'} size={17}/>
-    <span className="room-music-label">背景音樂{enabled?'已開啟':'已關閉'}</span>
+    <span className="room-music-label">{enabled?t('背景音樂已開啟','Background music on','BGMオン'):t('背景音樂已關閉','Background music off','BGMオフ')}</span>
   </button>
 }

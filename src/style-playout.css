@@ -21,7 +21,7 @@
 }
 .sp-seats li { display:grid; gap:4px; padding:8px; font-size:14px; }
 .sp-seats li[data-turn=true] { color:#fee3a6; background:#bea26a1c; box-shadow:inset 0 -2px #c9a76e; }
-.sp-seats span { white-space:nowrap; }
+.sp-seats span { overflow-wrap:anywhere; }
 .sp-trick,.sp-log { margin-top:16px; }
 .sp-trick .lesson-trick { padding-bottom:0; }
 .sp-log ol { padding:0; margin:5px 0 0; list-style:none; }

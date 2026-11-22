@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { assetPath } from './assets'
+import { localizeArrival } from './i18n'
 
 type Scene = 'battle'
 
@@ -19,10 +20,13 @@ export function useArrival(route: string) {
     if (!root) return
     const screen = document.getElementById('arrival-screen')
     if (screen) {
+      localizeArrival(screen)
       screen.classList.remove('is-leaving')
       screen.removeAttribute('aria-hidden')
     } else {
-      root.before(curtain.cloneNode(true))
+      const nextScreen = curtain.cloneNode(true) as HTMLElement
+      localizeArrival(nextScreen)
+      root.before(nextScreen)
     }
     root.setAttribute('inert', '')
     root.setAttribute('aria-busy', 'true')

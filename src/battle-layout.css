@@ -104,6 +104,12 @@
 .play-table .hint-toggle[aria-expanded=true] {background: #e5cd9e;color: #1e3828;border-color: #e5cd9e}
 .play-table .hint-toggle:disabled {opacity: .55}
 .table-menu {display: grid;gap: 6px;padding: 14px 18px 18px}
+.history .public-jokers {
+  display: flex;flex-wrap: wrap;gap: 4px 12px;
+  margin: 0 0 7px;padding: 6px 9px;border-radius: 6px;background: #e9e0cc;
+  color: #3d493b;font-variant-numeric: tabular-nums;
+}
+.history .public-jokers span {margin-left: 0;white-space: nowrap}
 .table-menu button {
   display: flex;align-items: center;gap: 9px;padding: 10px 12px;border: 1px solid #c9bda4;
   border-radius: 6px;background: #fbf5e9;color: #334438;font-size: 14px;text-align: left;

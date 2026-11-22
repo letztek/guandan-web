@@ -32,12 +32,12 @@ const questions: Record<string,string> = {
   resist:'一大一小也能抗貢嗎？幫我看看王的角標。',
 }
 
-export function lessonDialogue(lesson:Lesson, tone:LessonTone, message:string): LessonDialogue {
+export function lessonDialogue(lesson:Lesson, tone:LessonTone, message:string, translatedQuestion?:string): LessonDialogue {
   let lines:SpeechLine[] = [{speaker:'left',text:message}]
   if (tone==='clue') {
-    const question = lesson.id==='wind' && lesson.exercise.kind==='play'
+    const question = translatedQuestion ?? (lesson.id==='wind' && lesson.exercise.kind==='play'
       ? '已經接風了。現在還要跟剛才那對 K 嗎？'
-      : questions[lesson.id]
+      : questions[lesson.id])
     if (question) lines=[{speaker:'left',text:question},{speaker:'right',text:message}]
   }
   return {...cast[lesson.chapter],lines}

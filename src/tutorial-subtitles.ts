@@ -4,7 +4,7 @@ import type { SpeechLine } from './tutorial-dialogue'
 type Cursor = {id:string; index:number; count:number}
 const initial = (id:string):Cursor => ({id,index:0,count:1})
 
-export function useLessonSpeech({id,lines}:{id:string; lines:SpeechLine[]}) {
+export function useLessonSpeech({id,lines,characterDelay=34}:{id:string; lines:SpeechLine[]; characterDelay?:number}) {
   const [cursor,setCursor]=useState(()=>initial(id))
   const [preference]=useState(()=>window.matchMedia('(prefers-reduced-motion: reduce)'))
   const subscribe=useCallback((sync:()=>void)=>{
@@ -34,7 +34,7 @@ export function useLessonSpeech({id,lines}:{id:string; lines:SpeechLine[]}) {
     function tick() {
       const now=performance.now()
       while (shown<glyphs.length) {
-        const next=due+(/[，。！？；、：]/u.test(glyphs[shown-1]) ? 115 : 34)
+        const next=due+(/[,.!?;:，。！？；、：]/u.test(glyphs[shown-1]) ? 115 : characterDelay)
         if (next>now) {timer=window.setTimeout(tick,next-now);break}
         due=next
         shown++
@@ -43,15 +43,15 @@ export function useLessonSpeech({id,lines}:{id:string; lines:SpeechLine[]}) {
     }
     tick()
     return ()=>window.clearTimeout(timer)
-  },[id,index,glyphs,reduced,typing])
+  },[id,index,glyphs,reduced,typing,characterDelay])
 
   useEffect(()=>{
     if (typing || !hasNext) return
     const timer=window.setTimeout(()=>{
       setCursor(current=>current.id===id && current.index===index ? {id,index:index+1,count:1} : current)
-    },1100+glyphs.length*54)
+    },1100+glyphs.length*characterDelay*1.6)
     return ()=>window.clearTimeout(timer)
-  },[id,index,glyphs,hasNext,typing])
+  },[id,index,glyphs,hasNext,typing,characterDelay])
 
   function advance() {
     if (!typing && !hasNext) return

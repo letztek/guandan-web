@@ -5,6 +5,7 @@ import { controlCost, preferredFullHouses } from './control-cost.ts'
 import type { Difficulty } from './difficulty.ts'
 import type { PlayStyle } from './play-style.ts'
 import { partnerResponse, unseenCards } from './partner-tactics.ts'
+import { publicFinish } from './public-finish.ts'
 
 type Face = Pick<Card,'rank'|'suit'>
 // No hidden hand is part of the strategy API. shown contains only still-held
@@ -295,6 +296,10 @@ export function teamSuggestion(hand: Card[], level: string, target: Move|null, t
   if (strength==='beginner') return beginnerSuggestion(hand,level,target,table,style)
   const {advice:baseline,settled} = quickDecision(hand, level, target, table, style)
   if (settled) return baseline
+  const legal = preferredFullHouses(baseline.moves.filter(m=>beats(m,target)),hand,level)
+  const protectedPlan = strength==='advanced' && publicFinish(hand,level,target,table,legal)
+  if (protectedPlan) return {...baseline,...protectedPlan,
+    reason:attachmentReason(protectedPlan.move,baseline.moves,hand,level,protectedPlan.reason)}
   const partnerCount = table.counts[(table.seat+2)%4]
   // Standard concentrates the search on handoffs. Advanced also looks for
   // defenses before either opponent goes out, using the same public boundary.
@@ -306,7 +311,6 @@ export function teamSuggestion(hand: Card[], level: string, target: Move|null, t
   const handoff = partnerCount>0 && (partnerCount<=4 || receivingHandoff)
   const advancedEndgame = strength==='advanced' && (shortestOpponent<=4 || watchTen || hand.length<=5 || (partnerCount>0 && partnerCount<=6))
   if ((!handoff && !advancedEndgame) || baseline.move?.cards.length===hand.length) return baseline
-  const legal = preferredFullHouses(baseline.moves.filter(m=>beats(m,target)),hand,level)
   if (!legal.length || (!target && legal.length===1)) return baseline
   // Early warnings can occur while three seats still have nearly full hands.
   // Limit the number of full three-trick projections in these larger positions.

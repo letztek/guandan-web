@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Battle } from './battle'
 import { useArrival } from './arrival'
@@ -11,12 +11,22 @@ import { Tutorial, styleLessonRoute } from './tutorial'
 import { Modal } from './ui'
 import { DeckProof } from './deck-proof'
 import { FinalePreview } from './finale-preview'
+import { localizeArrival, translate as t, useLanguage } from './i18n'
 import { localGameKey, readAutoPass, readLocalGame, saveAutoPass, startLocalGame, updateLocalGame, type LocalGame } from './local-game'
 import './style.css'
 import './battle.css'
 import './battle-layout.css'
 
 function Cardroom() {
+  const language = useLanguage()
+  useLayoutEffect(()=>{
+    document.documentElement.lang = language
+    document.title = t('水晶亭的休戰日 · 二對二摜蛋','Truce Day at the Crystal Pavilion · 2v2 Guandan','水晶亭の休戦日 · 2対2の摜蛋')
+    document.querySelector('meta[name="description"]')?.setAttribute('content', t(
+      '《水晶亭的休戰日》二對二摜蛋。選一位隊友，在水晶亭的牌桌一起爭頭游。',
+      'Play 2v2 Guandan at the Crystal Pavilion. Choose a partner and play for first place.',
+      '水晶亭で遊ぶ2対2の摜蛋。ペアを選び、1位を目指そう。'))
+  },[language])
   const [route,setRoute] = useState(location.hash)
   const [save,setSave] = useState(readLocalGame)
   const [settings,setSettings] = useState(false)
@@ -95,19 +105,24 @@ function Cardroom() {
       onMusicScene={music.setScene} onChoosePartner={()=>{location.hash='lobby/partner'}} onHome={home}
       onTutorial={()=>{location.hash='tutorial/table'}} onSettings={()=>setSettings(true)} onSceneReady={sceneReady} arriving={arriving}/>
     : lobby ? <PartnerSelect initial={save?.partnerId??defaultPartnerId} onStart={seatPartner} onPreview={music.select}
-      backLabel={changingPartner?'返回牌桌':'主選單'} onBack={changingPartner?resume:home} onSettings={()=>setSettings(true)}
+      backLabel={changingPartner?t('返回牌桌','Back to table','卓に戻る'):t('主選單','Main menu','メインメニュー')} onBack={changingPartner?resume:home} onSettings={()=>setSettings(true)}
       musicControl={<RoomMusicButton enabled={music.enabled} onToggle={music.toggle}/>}/>
     : preview ? <FinalePreview partnerId={save?.partnerId??defaultPartnerId}/>
-    : tutorial ? <Tutorial key={route} onHome={fromTable?resume:home} backLabel={fromTable?'返回牌桌':'主選單'}
+    : tutorial ? <Tutorial key={route} onHome={fromTable?resume:home} backLabel={fromTable?t('返回牌桌','Back to table','卓に戻る'):t('主選單','Main menu','メインメニュー')}
       startWithStyleLesson={route===styleLessonRoute} onStart={start}/>
     : <Home save={save} onStart={start} onResume={resume} onTutorial={()=>{location.hash='tutorial'}} onSettings={()=>setSettings(true)}/>}
     {settings && <Settings music={music.enabled} volume={music.volume} onVolume={music.changeVolume} autoPass={autoPass} strengths={strengths} onStrength={changeStrength} onMusic={music.toggle} onClose={()=>setSettings(false)}
       onAutoPass={()=>{saveAutoPass(!autoPass);setAutoPass(!autoPass)}}/>}
-    {replacement && <Modal title="取代目前的對局？" className="replace-dialog" onClose={()=>setReplacement(null)}>
-      <p className="home-confirm">目前存到第 {replacement.save.game.handNo} 副。我方 {replacement.save.game.scores[0]} 級，對方 {replacement.save.game.scores[1]} 級。開始新局會取代這份進度。</p>
-      <footer><button className="btn border" onClick={()=>setReplacement(null)}>取消</button><button className="btn gold" onClick={replaceGame}>開始新局</button></footer>
+    {replacement && <Modal title={t('取代目前的對局？','Replace the saved match?','保存中の対戦を上書きしますか？')} className="replace-dialog" onClose={()=>setReplacement(null)}>
+      <p className="home-confirm">{t(
+        `目前存到第 ${replacement.save.game.handNo} 副。我方 ${replacement.save.game.scores[0]} 級，對方 ${replacement.save.game.scores[1]} 級。開始新局會取代這份進度。`,
+        `Your save is on round ${replacement.save.game.handNo}, at level ${replacement.save.game.scores[0]} against ${replacement.save.game.scores[1]}. Starting a new match replaces this save.`,
+        `第 ${replacement.save.game.handNo} ラウンドまで保存済みです。自チームは ${replacement.save.game.scores[0]}、相手は ${replacement.save.game.scores[1]} です。新しい対戦を始めると進行状況が上書きされます。`)}</p>
+      <footer><button className="btn border" onClick={()=>setReplacement(null)}>{t('取消','Cancel','キャンセル')}</button>
+        <button className="btn gold" onClick={replaceGame}>{t('開始新局','Start new match','新しい対戦を始める')}</button></footer>
     </Modal>}
-    {route==='#cards' && !save && <Modal title="Q 版牌樣" wide onClose={home}><DeckProof/></Modal>}
+    {route==='#cards' && !save && <Modal title={t('Q 版牌樣','Chibi card gallery','デフォルメカード一覧')} wide onClose={home}><DeckProof/></Modal>}
   </>
 }
+localizeArrival(document)
 createRoot(document.getElementById('root')!).render(<Cardroom/>)

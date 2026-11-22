@@ -10,7 +10,7 @@
 .lesson-brand { gap:10px; color:#e7be80; }
 .lesson-head h1 { margin:0; font:700 clamp(23px,2.5vw,34px)/1.2 var(--serif); color:#f0e5d0; }
 .lesson-room .btn { min-height:44px; padding:8px 17px; font-size:15px; }
-.lesson-index { margin-left:auto; gap:9px; color:#d5c3a5; font-size:14px; white-space:nowrap; }
+.lesson-index { min-width:0; margin-left:auto; gap:9px; color:#d5c3a5; font-size:14px; white-space:nowrap; }
 .lesson-index select {
   min-width:0; max-width:100%; min-height:42px; padding:6px 8px;
   border:1px solid #786c54; border-radius:5px; background:#1b2726; color:#fff0d4;

@@ -1,5 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { assetPath } from './assets'
+import { translate, useLanguage } from './i18n'
+import { displayName } from './match-l10n'
 import { partners, type PartnerId } from './partner-roster'
 import { TutorialActors, type TutorialMood } from './tutorial-actors'
 import type { LessonDialogue, LessonTone } from './tutorial-dialogue'
@@ -8,15 +10,20 @@ import { useLessonSpeech } from './tutorial-subtitles'
 export function LessonGuide({dialogue,tone,done,cue,table}: {
   dialogue:LessonDialogue; tone:LessonTone; done:boolean; cue:string; table:ReactNode
 }) {
+  const language=useLanguage()
+  const t = (zh:string,en:string,ja:string) => translate(zh,en,ja,language)
   const [painted,setPainted] = useState({left:false,right:false})
   const {left,right,lines} = dialogue
-  const speech = useLessonSpeech({id:cue,lines})
+  const speech = useLessonSpeech({id:cue+'-'+language,lines,characterDelay:language==='en'?23:34})
   const {speaker} = speech
   const duo = lines.length>1
   const actorCue = cue+'-'+speech.index
   const mood:TutorialMood = tone === 'correct' ? (done ? 'success' : 'correct') : tone === 'retry' ? 'wrong' : tone === 'clue' ? 'clue' : 'explain'
-  const label = {guide:'', clue:'線索', correct:done?'答對了':'接風成功', retry:'再試試'}[tone]
-  const speakerName = partners.find(actor=>actor.id===dialogue[speaker])!.name
+  const label = {guide:'', clue:t('線索','Clue','ヒント'),
+    correct:done?t('答對了','Well done','正解'):t('接風成功','You took the lead','引き継ぎ成功'),
+    retry:t('再試試','Try again','もう一度')}[tone]
+  const speakerName = displayName(partners.find(actor=>actor.id===dialogue[speaker])!.name)
+  const speechAction = speech.typing?t('顯示整句','Show full line','全文を表示'):t('下一句','Next line','次のセリフ')
   function portrait(rig:PartnerId,side:'left'|'right') {
     let file=rig+'-seat'
     if (mood==='success' && side===speaker) file='postures/'+rig+'-tutorial-joy'
@@ -42,10 +49,10 @@ export function LessonGuide({dialogue,tone,done,cue,table}: {
         <span className="lesson-subtitle-measure">{speech.text}</span>
         <span className="lesson-subtitle-visible">{speech.visibleText}</span>
       </p>
-      <span className="lesson-spoken-announcement" role="status" aria-atomic="true">{speakerName}：{speech.text}</span>
+      <span className="lesson-spoken-announcement" role="status" aria-atomic="true">{speakerName}{t('：',': ','：')}{speech.text}</span>
       <button type="button" className="lesson-speech-advance" disabled={!speech.typing && !speech.hasNext}
-        aria-label={speech.typing?'顯示整句':'下一句'} onClick={speech.advance}>
-        <span aria-hidden="true">{speech.typing?'顯示整句':'下一句'} <b>›</b></span>
+        aria-label={speechAction} onClick={speech.advance}>
+        <span aria-hidden="true">{speechAction} <b>›</b></span>
       </button>
     </div>
   </div>

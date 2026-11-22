@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { assetPath } from './assets'
-import { places, teamOf, type Match } from './match'
+import { teamOf, type Match } from './match'
+import { translate as t } from './i18n'
+import { displayName, placeName, remainingCards } from './match-l10n'
 import { tableSeatsFor } from './table-seats'
 import { defaultPartnerId, type PartnerId } from './partner-roster'
 import { startsNewTableHand, tablePosture, tableReactions } from './table-reactions'
@@ -94,30 +96,33 @@ function SeatedTable({game,cards,player,playKey,hand,selected,onSceneReady,partn
     lastGame.current=game
     lastShown.current=playKey
   },[game,playKey])
+  const partnerName=displayName(partner.name)
+  const focusedName=focusPerson?displayName(focusPerson.name):''
   return <div className={'table-render '+(visible?'has-scene':'flat-scene')} data-rendering={visible?'3d':error?'fallback':'loading'}
     style={{'--room-wall':'url("'+assetPath('art/room.jpg')+'")'} as CSSProperties}>
-    <canvas ref={canvas} className="room-canvas" role="img" aria-label={`三維牌桌，對面的${partner.name}是你的隊友`}/>
+    <canvas ref={canvas} className="room-canvas" role="img" aria-label={t('三維牌桌，對面的'+partnerName+'是你的隊友','3D card table. '+partnerName+' sits opposite you as your partner.','3Dの卓。向かいの'+partnerName+'がパートナーです。')}/>
     {seats.map(info=>{
       const id=info.number,rank=game.finish.indexOf(id)
       const mode=error?'portrait':modes[id]??'loading'
+      const name=displayName(info.name)
       return <div className={'table-seat seat-marker-'+id} key={id} data-rendering={mode} data-model={info.model}>
-        {mode==='portrait'&&<img className="fallback-seat" src={assetPath(seatPortrait(game,info))} alt={info.name}/>}
-        <button type="button" aria-label={info.name+'，表情近看'} aria-expanded={focusSeat===id} aria-controls="seat-closeup-slot" title={info.name+' · 表情近看'}
+        {mode==='portrait'&&<img className="fallback-seat" src={assetPath(seatPortrait(game,info))} alt={name}/>}
+        <button type="button" aria-label={t(name+'，表情近看',name+' close-up',name+'の表情を見る')} aria-expanded={focusSeat===id} aria-controls="seat-closeup-slot" title={name+' · '+t('表情近看','Close-up','表情を見る')}
           onClick={()=>chooseSeat(id)} className={'seat-tag '+(id===2?'ally':'rival')+(game.phase!=='result'&&game.turn===id?' acting':'')+(rank<0&&game.hands[id].length===1?' short-hand':'')}
           ref={el=>{if(el)labels.current.set(id,el);else labels.current.delete(id)}}>
-          <span className="affiliation">{id===2?'隊友':'對手'}</span><strong>{info.name}</strong><span>{rank>=0?places[rank]:'剩 '+game.hands[id].length+' 張'}</span>
+          <span className="affiliation">{id===2?t('隊友','Partner','パートナー'):t('對手','Opponent','対戦相手')}</span><strong>{name}</strong><span>{rank>=0?placeName(rank):remainingCards(game.hands[id].length)}</span>
         </button>
       </div>
     })}
-    {error&&<span className="table-compatibility">靜態相容模式</span>}
+    {error&&<span className="table-compatibility">{t('靜態相容模式','Static compatibility mode','静止画モード')}</span>}
     {focusPerson&&document.getElementById('seat-closeup-slot')&&createPortal(
-      <section className="seat-closeup" aria-label={focusPerson.name+'的表情近看'}>
+      <section className="seat-closeup" aria-label={t(focusedName+'的表情近看',focusedName+' close-up',focusedName+'の表情')}>
         <div className="seat-closeup-picture">
-          {liveFace?<canvas ref={portraitCanvas} aria-label={focusPerson.name+'即時表情'} role="img"/>:
-            <img src={assetPath(seatPortrait(game,focusPerson))} alt={focusPerson.name+'靜態肖像'}/>}
+          {liveFace?<canvas ref={portraitCanvas} aria-label={t(focusedName+'即時表情',focusedName+' live expression',focusedName+'のリアルタイム表情')} role="img"/>:
+            <img src={assetPath(seatPortrait(game,focusPerson))} alt={t(focusedName+'靜態肖像',focusedName+' still portrait',focusedName+'の静止画')}/>}
         </div>
-        <div className="seat-closeup-caption"><span>{liveFace?'表情近看':'靜態肖像'}</span><strong>{focusPerson.name}</strong></div>
-        <button type="button" className="size-btn" onClick={closeFace}>關閉近看</button>
+        <div className="seat-closeup-caption"><span>{liveFace?t('表情近看','Close-up','表情'):t('靜態肖像','Still portrait','静止画')}</span><strong>{focusedName}</strong></div>
+        <button type="button" className="size-btn" onClick={closeFace}>{t('關閉近看','Close close-up','閉じる')}</button>
       </section>,document.getElementById('seat-closeup-slot')!
     )}
   </div>

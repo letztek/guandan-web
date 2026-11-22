@@ -186,7 +186,18 @@ export const lessons: Lesson[] = [
 export type LessonAction = 'play' | 'pass' | 'donate' | 'return' | 'resist'
 export type LessonResult = { ok: boolean; message: string; cards: Card[] }
 
-export function checkLesson(lesson: Lesson, ids: readonly string[], action: LessonAction): LessonResult {
+const feedbackCopy = {
+  beatTable: '這題要練習壓過桌面的牌。',
+  mustLead: '這圈由你領出，必須先出一手牌。',
+  pickCards: '請先從手牌點選這一手要用的牌。',
+  invalidPattern: '這些牌還沒有組成合法牌型。',
+  letPartnerLead: '這手可以壓牌。這題要把牌權交給隊友。',
+  tooSmall: (kind: string) => '這手壓不過桌面的' + names[kind] + '。',
+  tryPattern: (kind: string) => '這是合法出法。這一課請試試' + names[kind] + '。',
+}
+export type LessonFeedback = typeof feedbackCopy
+
+export function checkLesson(lesson: Lesson, ids: readonly string[], action: LessonAction, feedback = feedbackCopy): LessonResult {
   const retry = (message: string): LessonResult => ({ok: false, message, cards: []})
   const success = (cards: Card[] = []): LessonResult => ({ok: true, message: lesson.success, cards})
   const { exercise, target, level, hand } = lesson
@@ -197,10 +208,10 @@ export function checkLesson(lesson: Lesson, ids: readonly string[], action: Less
   }
   if (action === 'pass') {
     if (exercise.kind === 'pass') return success()
-    return retry(target ? '這題要練習壓過桌面的牌。' + lesson.hint : '這圈由你領出，必須先出一手牌。')
+    return retry(target ? feedback.beatTable + lesson.hint : feedback.mustLead)
   }
   const chosen = hand.filter(card => ids.includes(uid(card)))
-  if (!chosen.length || chosen.length !== ids.length) return retry('請先從手牌點選這一手要用的牌。')
+  if (!chosen.length || chosen.length !== ids.length) return retry(feedback.pickCards)
   if (exercise.kind === 'donate' || exercise.kind === 'return') {
     const allowed = exchangeOptions({hands:[hand], turn:0, phase:exercise.kind, level})
     return action === exercise.kind && chosen.length === 1 && allowed.some(card => uid(card) === uid(chosen[0]))
@@ -208,10 +219,10 @@ export function checkLesson(lesson: Lesson, ids: readonly string[], action: Less
   }
   if (action !== 'play') return retry(lesson.hint)
   const candidates = allMoves(chosen, level, true)
-  if (!candidates.length) return retry('這些牌還沒有組成合法牌型。' + lesson.hint)
+  if (!candidates.length) return retry(feedback.invalidPattern + lesson.hint)
   const legal = candidates.filter(move => beats(move, target ?? null))
-  if (!legal.length) return retry('這手壓不過桌面的' + names[target!.kind] + '。' + lesson.hint)
-  if (exercise.kind !== 'play') return retry('這手可以壓牌。這題要把牌權交給隊友。' + lesson.hint)
+  if (!legal.length) return retry(feedback.tooSmall(target!.kind) + lesson.hint)
+  if (exercise.kind !== 'play') return retry(feedback.letPartnerLead + lesson.hint)
   const move = legal.find(option => option.kind === exercise.pattern)
-  return move ? success(move.cards) : retry('這是合法出法。這一課請試試' + names[exercise.pattern] + '。' + lesson.hint)
+  return move ? success(move.cards) : retry(feedback.tryPattern(exercise.pattern) + lesson.hint)
 }

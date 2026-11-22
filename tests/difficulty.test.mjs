@@ -53,3 +53,59 @@ test('the three policies choose legal leads against a one-card opponent using on
   assert.match(endgame.reason,/隊友已出完/)
   assert.doesNotMatch(endgame.reason,/隊友若有更大/)
 })
+
+function publicEndgame(remainingRanks) {
+  const stock = deck()
+  const hands = remainingRanks.map(ranks => ranks.map(rank => {
+    const index = stock.findIndex(card => card.rank === rank || card.id === rank)
+    assert.notEqual(index, -1)
+    return stock.splice(index, 1)[0]
+  }))
+  const events = stock.map(card => ({
+    seat:1, kind:'play', trick:1, text:'先前已出', move:allMoves([card], '2', true)[0]
+  }))
+  return {...startMatch(deck(), () => 0), turn:0, trick:2, hands, events}
+}
+
+test('advanced remembers both played small jokers and uses the lowest certain control for first', () => {
+  const ranks = [['C2-0','D4-0','H4-1'], ['HA-0','DK-0','CQ-0','SJ-0','S9-0'],
+    ['DA-0','CK-0','HQ-0','S8-0','H7-0'], ['C6-0','H5-0','C4-0','D3-0','S10-0']]
+  const game = publicEndgame(ranks)
+  const standard = adviseTurn(game, 'standard')
+  assert.equal(standard.move.label, '4 × 2')
+  const advice = adviseTurn(game, 'advanced')
+  assert.equal(advice.move.label, '2')
+  assert.match(advice.reason, /兩張小王都已出過.*先出單張 2.*下一圈領出對子 4 × 2.*頭游/)
+
+  const guarded = {...game, hands:game.hands.map((hand, seat) => seat === 0 ? hand : new Proxy(hand, {
+    get(target, key) {
+      if (key === 'length') return target.length
+      throw Error('inspected an opponent or ally card')
+    }
+  }))}
+  assert.deepEqual(adviseTurn(guarded, 'advanced'), advice)
+
+  let next = takeTurn(game, 0, advice.move)
+  for (const seat of [1,2,3]) next = takeTurn(next, seat, null)
+  assert.equal(next.turn, 0)
+  next = takeTurn(next, 0, adviseTurn(next, 'advanced').move)
+  assert.deepEqual(next.finish, [0])
+
+  const lastSmallJokerUnplayed = publicEndgame(ranks.map((hand, seat) => seat === 1 ? [...hand.slice(1), 'SJ'] : hand))
+  assert.doesNotMatch(adviseTurn(lastSmallJokerUnplayed, 'advanced').reason, /兩張小王都已出過|能連續保住牌權/)
+  const bombPossible = publicEndgame([['2','4'], ['K','K','K','K'], ['10'], ['Q']])
+  assert.doesNotMatch(adviseTurn(bombPossible, 'advanced').reason, /能連續保住牌權/)
+})
+
+test('advanced can secure two successive leads and keep a lower last card for first', () => {
+  let game = publicEndgame([['2','BJ','4'], ['K'], ['10'], ['Q']])
+  const first = adviseTurn(game, 'advanced')
+  assert.match(first.reason, /先出單張 2.*再由單張 大王.*最後領出單張 4.*頭游/)
+  for (const label of ['2','大王','4']) {
+    const advice = adviseTurn(game, 'advanced')
+    assert.equal(advice.move.label, label)
+    game = takeTurn(game, 0, advice.move)
+    if (label !== '4') for (const seat of [1,2,3]) game = takeTurn(game, seat, null)
+  }
+  assert.deepEqual(game.finish, [0])
+})

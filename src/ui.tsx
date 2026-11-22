@@ -1,7 +1,9 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react'
-import { face, symbols, suitNames, wild, type Card } from './rules'
+import { symbols, wild, type Card } from './rules'
 import { assetPath } from './assets'
 import { cardFaceIndex } from './fez-deck'
+import { translate as t } from './i18n'
+import { cardName } from './match-l10n'
 import './fez-cards.css'
 
 const strokes:Record<string,ReactNode>={
@@ -32,8 +34,9 @@ export function PlayingCard({card,selected=false,onClick,level='2',mini=false}:{
   const { rank, suit } = card
   const index = cardFaceIndex(card)
   const joker = suit === 'J'
+  const jokerIndex = rank === 'SJ' ? t('小','S','小') : t('大','B','大')
   const red = suit === 'H' || suit === 'D' || rank === 'BJ'
-  const label = suitNames[suit] + face(card)
+  const label = cardName(card)
   const className = ['playing-card','fez-card',/^\d+$/.test(rank) && 'numeric',red && 'red',selected && 'selected',
     mini && 'mini',onClick && 'interactive'].filter(Boolean).join(' ')
   const surface = <>
@@ -42,10 +45,10 @@ export function PlayingCard({card,selected=false,onClick,level='2',mini=false}:{
       backgroundPosition: ((index % 9) / 8 * 100) + '% ' + (Math.floor(index / 9) / 5 * 100) + '%'
     }}/>
     <span aria-hidden="true" className="fez-index">
-      <b>{joker ? (rank === 'SJ' ? '小' : '大') : rank}</b>
+      <b>{joker ? jokerIndex : rank}</b>
       <i>{symbols[suit]}</i>
     </span>
-    {wild(card,level) && !mini && <small className="wildmark">配</small>}
+    {wild(card,level) && !mini && <small className="wildmark" title={t('逢人配','Wild card','ワイルドカード')}>{t('配','W','※')}</small>}
     {selected && <span className="tick"><Icon name="check" size={11}/></span>}
   </>
   return onClick
@@ -57,6 +60,6 @@ export function Modal({title,onClose,children,wide=false,className=''}:{title:st
   const ref=useRef<HTMLDialogElement>(null)
   const heading=useId()
   useEffect(()=>{const el=ref.current;el?.showModal();return ()=>el?.close()},[])
-  return <dialog className={['modal',wide&&'wide',className].filter(Boolean).join(' ')} ref={ref} aria-labelledby={heading} onCancel={e=>{e.preventDefault();onClose()}} onClick={e=>{if(e.target===ref.current){const b=ref.current.getBoundingClientRect();if(e.clientX<b.left||e.clientX>b.right||e.clientY<b.top||e.clientY>b.bottom)onClose()}}}><header><h2 id={heading}>{title}</h2><button aria-label="關閉" onClick={onClose} className="icon-btn"><Icon name="close"/></button></header>{children}</dialog>
+  return <dialog className={['modal',wide&&'wide',className].filter(Boolean).join(' ')} ref={ref} aria-labelledby={heading} onCancel={e=>{e.preventDefault();onClose()}} onClick={e=>{if(e.target===ref.current){const b=ref.current.getBoundingClientRect();if(e.clientX<b.left||e.clientX>b.right||e.clientY<b.top||e.clientY>b.bottom)onClose()}}}><header><h2 id={heading}>{title}</h2><button aria-label={t('關閉','Close','閉じる')} onClick={onClose} className="icon-btn"><Icon name="close"/></button></header>{children}</dialog>
 }
 

@@ -1,6 +1,8 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { assetPath } from './assets'
-import { partner, places, teamOf, type Match } from './match'
+import { partner, teamOf, type Match } from './match'
+import { translate as t } from './i18n'
+import { displayName, handNumber, placeName } from './match-l10n'
 import type { PartnerId } from './partner-roster'
 import { characterName } from './table-seats'
 import { Icon, Modal, PlayingCard } from './ui'
@@ -25,16 +27,16 @@ export function MatchFinale({game,partnerId,available,onReview,onRematch}: Props
   },[available,screen])
 
   const won = teamOf(game.finish[0])===0
-  const title = won?'整場勝利':'整場落敗'
+  const title = won?t('整場勝利','Match won','マッチ勝利'):t('整場落敗','Match lost','マッチ敗北')
   const close = ()=>setScreen('closed')
 
   return <>
-    <button className="btn border finale-reopen" onClick={()=>setScreen('open')}>查看整場戰果</button>
+    <button className="btn border finale-reopen" onClick={()=>setScreen('open')}>{t('查看整場戰果','Match results','マッチ結果を見る')}</button>
     {screen==='open' && available && <Modal title={title} className={'match-finale '+(won?'finale-win':'finale-loss')} onClose={close}>
       <FinaleScene finish={game.finish} handNo={game.handNo} partnerId={partnerId} partnerHasCards={game.hands[2].length>0}/>
       <footer>
-        <button className="btn border" onClick={()=>{close();onReview()}}><Icon name="history" size={16}/>本副牌譜</button>
-        <button className="btn gold" onClick={()=>{close();onRematch()}}>再開一場</button>
+        <button className="btn border" onClick={()=>{close();onReview()}}><Icon name="history" size={16}/>{t('本副牌譜','Deal history','この局の履歴')}</button>
+        <button className="btn gold" onClick={()=>{close();onRematch()}}>{t('再開一場','Play again','もう一戦')}</button>
       </footer>
     </Modal>}
   </>
@@ -46,7 +48,7 @@ export function FinaleScene({finish,handNo,partnerId,partnerHasCards}: SceneProp
   const first = finish[0]
   const mate = partner(first)
   const won = teamOf(first)===0
-  const team = won?'我方':'對方'
+  const team = won?t('我方','Your team','自チーム'):t('對方','Opponents','相手チーム')
   const partnerPose = (won?'win':'lose')+(partnerHasCards?'-hand':'-rest')
   return <div className="finale-scene">
     <div className="finale-illustration" aria-hidden="true">
@@ -57,11 +59,11 @@ export function FinaleScene({finish,handNo,partnerId,partnerHasCards}: SceneProp
       <div className="finale-motes">{[0,1,2,3,4,5,6].map(i=><i key={i} style={{'--n':i} as CSSProperties}/>)}</div>
     </div>
     <div className="finale-summary">
-      <small>{handNo===undefined?'牌局範例':'第 '+handNo+' 副'} · 主打級牌 A</small>
-      <h3>{team}過 A</h3>
-      <p>主打 A 的隊伍拿下頭游，搭檔取得二游或三游，即可贏得整場。</p>
-      <ul aria-label="過 A 隊伍名次">
-        {[first,mate].map(seat=><li key={seat}><span>{places[finish.indexOf(seat)]}</span> {characterName(seat,partnerId)}</li>)}
+      <small>{handNo===undefined?t('牌局範例','Example deal','対局例'):handNumber(handNo)} · {t('主打級牌 A','Level A','レベルA')}</small>
+      <h3>{t(team+'過 A',team+' cleared A',team+'がAを突破')}</h3>
+      <p>{t('主打 A 的隊伍拿下頭游，搭檔取得二游或三游，即可贏得整場。','The team playing at level A wins the match by finishing first and either second or third.','レベルAのチームが1位と2位、または1位と3位になればマッチに勝利します。')}</p>
+      <ul aria-label={t('過 A 隊伍名次','Finishing places for the team that cleared A','Aを突破したチームの順位')}>
+        {[first,mate].map(seat=><li key={seat}><span>{placeName(finish.indexOf(seat))}</span> {displayName(characterName(seat,partnerId))}</li>)}
       </ul>
     </div>
   </div>
