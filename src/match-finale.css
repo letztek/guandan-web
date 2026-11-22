@@ -1,0 +1,69 @@
+.battle-hand .finale-reopen { margin: 0 16px 10px; min-height: 36px; }
+.modal.match-finale,.preview-performance.match-finale {
+  --finale-gold: #eed49b;
+  --finale-rim: #ac8e55;
+  --finale-light: #e1ac52;
+  --finale-dark: #1d392d;
+  width: min(620px, 94vw); max-height: 94dvh; padding: 0; overflow: auto;
+  color: #f9efd8; border: 1px solid var(--finale-rim); border-radius: 11px;
+  background: linear-gradient(130deg,var(--finale-dark),#162621 80%); box-shadow: 0 18px 80px #000a;
+}
+.modal.match-finale.finale-loss,.preview-performance.finale-loss {
+  --finale-gold: #dce2ef; --finale-rim: #858c9d; --finale-light: #ab9ab5; --finale-dark: #343544;
+  background: linear-gradient(130deg,var(--finale-dark),#212831 80%);
+}
+.match-finale::backdrop { background: #08120fd6; }
+.modal.match-finale > header,.modal.match-finale > footer { border-color: color-mix(in srgb,var(--finale-rim) 55%,transparent); background: transparent; }
+.modal.match-finale > header { padding: 10px 18px; }
+.modal.match-finale > header h2 { margin: 0; font: 600 1.1rem/1.5 var(--serif); letter-spacing: .08em; color: var(--finale-gold); }
+.match-finale .icon-btn { color: var(--finale-gold); }
+.modal.match-finale > footer { padding: 12px 18px; justify-content: flex-end; gap: 10px; }
+.match-finale .btn { min-height: 40px; }
+.match-finale .btn.border { background: transparent; color: var(--finale-gold); border-color: var(--finale-rim); }
+.finale-scene { display: grid; grid-template-columns: minmax(0,.85fr) minmax(0,1fr); align-items: stretch; }
+.finale-illustration { position: relative; isolation: isolate; overflow: hidden; min-height: 236px; }
+.finale-illustration::after { position: absolute; content: ''; inset: auto 0 0; height: 20%; background: linear-gradient(transparent,var(--finale-dark)); pointer-events: none; }
+.finale-halo { position: absolute; inset: 8% 7% -8%; border-radius: 50%; background: radial-gradient(ellipse, var(--finale-light),transparent 68%); opacity: .46; }
+.finale-card { position: absolute; bottom: 14%; height: 62%; aspect-ratio: 5/7; opacity: .72; filter: saturate(.68); }
+.finale-card .playing-card { display: block; width: 100%; height: 100%; border-radius: 6%; overflow: hidden; margin: 0; box-shadow: 0 3px 10px #1118; }
+.finale-card .fez-index { display: none; }
+.finale-card.left { left: 12%; --angle: -19deg; transform: rotate(var(--angle)); }
+.finale-card.right { right: 12%; --angle: 19deg; transform: rotate(var(--angle)); }
+.finale-partner { position: absolute; bottom: -1%; left: 4%; width: 92%; height: 95%; object-fit: contain; object-position: center bottom; filter: drop-shadow(0 4px 7px #14201977); }
+.finale-motes { position: absolute; inset: 0; pointer-events: none; }
+.finale-motes i { position: absolute; left: calc(8% + 13% * var(--n)); width: 5px; height: 5px; opacity: 0; }
+.finale-win .finale-motes i { bottom: 15%; background: #ffdc8c; animation: finale-sparks 2.25s ease-out calc(.1s * var(--n)) both; }
+.finale-loss .finale-motes i { top: 8%; height: 12px; width: 2px; background: #c2c3d5; animation: finale-rain 1.8s ease-in calc(.11s * var(--n)) both; }
+.finale-win .finale-card { animation: finale-fan-in .85s cubic-bezier(.14,.74,.26,1) both; }
+.finale-win .finale-partner { animation: finale-rise 1.1s cubic-bezier(.22,.76,.3,1) both; }
+.finale-loss .finale-card { opacity: .34; animation: finale-fold-in 1.35s ease-out both; }
+.finale-loss .finale-partner { animation: finale-bow 1.8s ease-in-out both; transform-origin: 50% 92%; }
+.finale-summary { align-self: center; padding: 22px 24px 22px 5px; }
+.finale-summary small { color: var(--finale-gold); font-size: .82rem; }
+.finale-summary h3 { margin: 6px 0 8px; font: 700 clamp(1.95rem,5vw,3.2rem)/1.1 var(--serif); color: var(--finale-gold); }
+.finale-summary p { margin: 0; line-height: 1.65; color: #f4e9d6; font-size: .95rem; }
+.finale-summary ul { display: grid; gap: 2px; margin: 12px 0 0; padding: 0; list-style: none; }
+.finale-summary li { display: flex; gap: 12px; align-items: baseline; color: #fff5de; font-size: .98rem; }
+.finale-summary li span { color: var(--finale-gold); font-size: .82rem; }
+@keyframes finale-fan-in { from { opacity: 0; transform: translateY(28%) rotate(0); } }
+@keyframes finale-rise { from { opacity: .15; transform: translateY(13%); } 74% { transform: translateY(-2%); } }
+@keyframes finale-fold-in { from { opacity: .82; transform: translateY(-23%) rotate(calc(1.45 * var(--angle))); } }
+@keyframes finale-bow { 0% { opacity: .25; transform: translateY(-4%); } 58% { opacity: 1; transform: translateY(2%) rotate(2deg); } }
+@keyframes finale-sparks { 0% { opacity: 0; transform: translateY(0) rotate(0); } 18% { opacity: .9; } 100% { opacity: 0; transform: translateY(-125px) rotate(100deg); } }
+@keyframes finale-rain { 0% { opacity: 0; transform: translate(0,0) rotate(12deg); } 28% { opacity: .7; } 100% { opacity: 0; transform: translate(-22px,104px) rotate(12deg); } }
+@media (max-width: 500px) and (min-height: 460px) {
+  .finale-scene { grid-template-columns: 1fr; }
+  .finale-illustration { min-height: 0; height: clamp(128px,25svh,205px); width: min(100%,290px); justify-self: center; }
+  .finale-summary { padding: 12px 22px 16px; }
+  .finale-summary ul { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+  .finale-summary li { gap: 6px; }
+}
+@media (max-height: 430px) {
+  .modal.match-finale > header,.modal.match-finale > footer { padding: 6px 14px; }
+  .finale-illustration { min-height: 148px; }
+  .finale-summary { padding-block: 9px; }
+  .finale-summary ul { margin-top: 6px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .match-finale *, .match-finale *::after { animation: none !important; transition: none !important; }
+}

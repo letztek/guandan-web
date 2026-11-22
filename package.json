@@ -1,0 +1,24 @@
+{
+  "name": "guandan-cardroom",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "test": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@pixiv/three-vrm-materials-mtoon": "3.5.5",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@types/three": "^0.180.0",
+    "typescript": "^5.8.3",
+    "vite": "^7.1.0"
+  }
+}

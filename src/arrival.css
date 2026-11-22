@@ -1,0 +1,154 @@
+#arrival-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  isolation: isolate;
+  background: radial-gradient(ellipse at 50% 46%, #405044 0%, #24352e 39%, #172923 67%, #101d1b 100%);
+  color: #f6eddb;
+  font-family: system-ui, "Microsoft JhengHei", sans-serif;
+  transition: opacity 150ms ease-out;
+}
+#arrival-screen.is-leaving { opacity: 0; pointer-events: none; }
+.arrival-scene {
+  position: relative;
+  width: min(91vw, 650px);
+  margin: 0 0 clamp(30px, 5vh, 48px);
+}
+.arrival-scene::before {
+  content: "";
+  position: absolute;
+  inset: -25% -15% -8%;
+  background: radial-gradient(ellipse at 50% 57%, #d3b77d29, transparent 66%);
+}
+.arrival-track {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.arrival-track::after {
+  content: "";
+  position: absolute;
+  bottom: 1%;
+  left: -2%;
+  right: -2%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #ceb47952 22%, #ccb47e8c 50%, #ceb47952 78%, transparent);
+  z-index: -1;
+}
+.arrival-walker {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  aspect-ratio: 1;
+  --pace: 860ms;
+  --beat: -190ms;
+  --sheet-x: 0%;
+  --hem: 70%;
+  --outer-l: 33%;
+  --outer-r: 73%;
+  --fork: 54%;
+  --mid: 47%;
+  --back-pivot: 53%;
+  --front-pivot: 55%;
+}
+.arrival-hw {
+  --pace: 790ms; --beat: -510ms; --sheet-x: 50%;
+  --hem: 74%; --outer-l: 10%; --outer-r: 74%; --fork: 43%; --mid: 42%;
+  --back-pivot: 42%; --front-pivot: 49%;
+}
+.arrival-athena {
+  --pace: 970ms; --beat: -365ms; --sheet-x: 100%;
+  --hem: 80%; --outer-l: 35%; --outer-r: 60%; --fork: 47%; --mid: 46%;
+  --back-pivot: 44%; --front-pivot: 48%;
+}
+.arrival-walker::before {
+  content: "";
+  position: absolute;
+  left: 24%;
+  right: 24%;
+  bottom: -1.7%;
+  height: 4%;
+  border-radius: 50%;
+  background: #10171188;
+  filter: blur(2px);
+  animation: arrival-shadow var(--pace) var(--beat) ease-in-out infinite;
+}
+.arrival-walker > span {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 93%;
+  animation: arrival-stride var(--pace) var(--beat) linear infinite;
+}
+/* All three parts sample the same unmodified illustration. The skirt overlaps the two leg pivots. */
+.arrival-walker i {
+  position: absolute;
+  inset: 0;
+  background-image: var(--arrival-sheet, url('/art/arrival-company.webp'));
+  background-size: 300% 100%;
+  background-repeat: no-repeat;
+  background-position: var(--sheet-x) center;
+}
+.arrival-walker i:nth-child(1) {
+  clip-path: polygon(var(--outer-l) var(--hem), var(--fork) var(--hem), var(--mid) 81%, var(--mid) 100%, var(--outer-l) 100%);
+  transform-origin: var(--back-pivot) var(--hem);
+  animation: arrival-back-step var(--pace) var(--beat) ease-in-out infinite;
+}
+.arrival-walker i:nth-child(2) {
+  clip-path: polygon(var(--fork) var(--hem), var(--outer-r) var(--hem), var(--outer-r) 100%, var(--mid) 100%, var(--mid) 81%);
+  transform-origin: var(--front-pivot) var(--hem);
+  animation: arrival-front-step var(--pace) var(--beat) ease-in-out infinite;
+}
+.arrival-walker i:nth-child(3) {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, var(--outer-r) 100%, var(--outer-r) calc(var(--hem) + 2%), var(--outer-l) calc(var(--hem) + 2%), var(--outer-l) 100%, 0 100%);
+}
+.arrival-title {
+  margin-left: .26em;
+  font: 600 clamp(26px, 5.1vw, 39px)/1.4 "Songti TC", "PMingLiU", "Noto Serif TC", Georgia, serif;
+  letter-spacing: .26em;
+}
+.arrival-subtitle {
+  margin-top: 3px;
+  color: #e7d6ad;
+  font-size: 16px;
+  letter-spacing: .15em;
+}
+.arrival-status {
+  margin: 9px 0 0;
+  color: #d6c59d;
+  font-size: 13px;
+  letter-spacing: .16em;
+}
+@keyframes arrival-stride {
+  0%, 100% { transform: translate(-1.2%, 0) rotate(-1.4deg); }
+  25% { transform: translate(.1%, -2.5%) rotate(.5deg); }
+  50% { transform: translate(1%, -.2%) rotate(1.1deg); }
+  75% { transform: translate(-.1%, -2%) rotate(-.2deg); }
+}
+@keyframes arrival-back-step {
+  0%, 100% { transform: rotate(7deg); }
+  27% { transform: rotate(-12deg) skewY(2deg); }
+  52% { transform: rotate(-22deg) scaleY(.97); }
+  78% { transform: rotate(-1deg) scaleY(1.025); }
+}
+@keyframes arrival-front-step {
+  0%, 100% { transform: rotate(-10deg); }
+  27% { transform: rotate(2deg) scaleY(1.04); }
+  52% { transform: rotate(15deg); }
+  78% { transform: rotate(4deg) scaleY(.91); }
+}
+@keyframes arrival-shadow {
+  0%, 50%, 100% { transform: scaleX(1); opacity: .95; }
+  25%, 75% { transform: scaleX(.85); opacity: .61; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #arrival-screen { transition: none; }
+  .arrival-walker::before, .arrival-walker > span, .arrival-walker i:nth-child(n) { animation: none; }
+}
+@media (max-height: 440px) and (orientation: landscape) {
+  .arrival-scene { width: min(62vw, 75vh); margin-bottom: 15px; }
+}

@@ -1,0 +1,72 @@
+{
+  "A": {
+    "name": "騎士",
+    "sheet": "sheets/A.png"
+  },
+  "2": {
+    "name": "瑪莉亞",
+    "sheet": "sheets/2.png",
+    "weapon": "ステンドハート",
+    "weaponSource": "https://fez.publog.jp/archives/35146900.html"
+  },
+  "3": {
+    "name": "黑龍使",
+    "sheet": "sheets/3.png",
+    "weapon": "天つらぬく竜ノ大剣",
+    "weaponSource": "https://fez.publog.jp/archives/12821808.html"
+  },
+  "4": {
+    "name": "半魔",
+    "sheet": "sheets/4.png",
+    "weapon": "ヴァンパイア・バット",
+    "weaponSource": "https://fez.publog.jp/archives/77777444.html"
+  },
+  "5": {
+    "name": "珊迪",
+    "sheet": "sheets/5.png",
+    "weapon": "キャンディーベイビー",
+    "weaponSource": "https://fez.publog.jp/archives/15690501.html"
+  },
+  "6": {
+    "name": "科莉黛爾",
+    "sheet": "sheets/6.png",
+    "weapon": "登る羊の蔓木杖",
+    "weaponSource": "https://fez.publog.jp/archives/22030890.html"
+  },
+  "7": {
+    "name": "鈴音",
+    "sheet": "sheets/7.png",
+    "weapon": "飾扇・桜流し",
+    "weaponSource": "https://fez.publog.jp/archives/70830486.html"
+  },
+  "8": {
+    "name": "Albus",
+    "sheet": "sheets/8.png",
+    "weapon": "八卦白銀弓",
+    "weaponSource": "https://fez.publog.jp/archives/74443801.html"
+  },
+  "9": {
+    "name": "樋熊",
+    "sheet": "sheets/9.png",
+    "weapon": "堅牢なる獅子の爪",
+    "weaponSource": "https://fez.publog.jp/archives/52641412.html"
+  },
+  "10": {
+    "name": "天宮",
+    "sheet": "sheets/10.png",
+    "weapon": "アムブロシアセット",
+    "weaponSource": "https://fez.publog.jp/archives/78140933.html"
+  },
+  "J": {
+    "name": "死靈",
+    "sheet": "sheets/J.png"
+  },
+  "Q": {
+    "name": "巨人",
+    "sheet": "sheets/Q.png"
+  },
+  "K": {
+    "name": "奇美拉",
+    "sheet": "sheets/K.png"
+  }
+}

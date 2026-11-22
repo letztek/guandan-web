@@ -1,0 +1,20 @@
+.room-music-button {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid #948570;
+  border-radius: 50%;
+  background: #24382f;
+  color: #f3dbac;
+  cursor: pointer;
+}
+.room-music-button:hover { background: #344c40; }
+.room-music-button:focus-visible { outline: 2px solid #f8dc9b; outline-offset: 3px; }
+.room-music-button[aria-pressed="false"] { color: #c5c9c0; }
+.room-music-label { display: none; }
+.table-menu .room-music-button, .page-footer .room-music-button { width: auto; }
+.table-menu .room-music-label, .page-footer .room-music-label { display: inline; }
+.table-menu .room-music-button[aria-pressed="false"] { color: #465046; }

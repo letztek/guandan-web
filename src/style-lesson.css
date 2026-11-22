@@ -1,0 +1,86 @@
+.style-lab-heading,.style-lab-personal,.style-lab-verdict {
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+}
+.style-lab-history {
+  padding:4px 0 4px 6px; color:#efcf94; background:transparent; border:0;
+  text-decoration:underline; text-underline-offset:4px; font-size:14px;
+}
+.style-lab-seats {
+  display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); margin:12px 0 0;
+  padding:0; gap:8px; color:#f2ead9;
+}
+.style-lab-seats div+div { border-left:1px solid #607461; padding-left:12px; }
+.style-lab-seats dt,.style-lab-personal span,.style-lab-verdict span { font-size:14px; color:#ddceaf; }
+.style-lab-seats dd { margin:3px 0 0; font-size:13px; }
+.style-lab-seats b { font:700 24px/1.1 Georgia,serif; color:#fff1da; }
+.style-lab-choices.lesson-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); }
+.style-lab-choices .btn { justify-content:center; }
+.style-lab-compare h3 { margin:17px 0 8px; font:700 18px/1.3 var(--serif); color:#fff1da; }
+.style-lab-personal { padding-bottom:9px; border-bottom:1px solid #536055; }
+.style-lab-personal strong,.style-lab-verdict strong { font-weight:700; font-size:18px; color:#fff1da; }
+.style-lab-switch { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; }
+.style-lab-switch button {
+  min-height:42px; padding:5px; border:1px solid #627064; border-radius:5px;
+  background:#1e2c29; color:#ece4d4; font-size:15px;
+}
+.style-lab-switch button[aria-pressed=true] {
+  color:#ffe2a7; border-color:#d0ab73; background:#374037; box-shadow:inset 0 -2px #d0ab73;
+}
+.style-lab-switch button:focus-visible,.style-lab-history:focus-visible {
+  outline:2px solid #f9d18e; outline-offset:1px;
+}
+.style-lab-verdict { margin:13px 0 6px; }
+.style-lab-handline { display:flex; gap:4px; flex-wrap:wrap; margin:0 0 13px; }
+.style-lab-handline span {
+  border:1px solid #53665c; border-radius:3px; padding:3px 5px;
+  font:600 14px/1.1 Georgia,serif; color:#dbe0d3; font-variant-numeric:tabular-nums;
+}
+.style-lab-handline [data-play=true] { border-color:#cfaf78; background:#e3c797; color:#283127; }
+.style-lab-record { padding:5px 22px 16px; }
+.style-lab-record section { padding:10px 0; }
+.style-lab-record section+section { border-top:1px solid #746748; }
+.style-lab-record h3 { margin:0 0 4px; font-size:16px; color:#eed39b; }
+.style-lab-record p { margin:0; color:#eee7db; font-size:15px; line-height:1.6; }
+@media (orientation:landscape) and (max-height:550px) {
+  .style-lab { align-self:start; max-height:100%; }
+  .style-lab .lesson-context { flex:none; padding:4px 9px; }
+  .style-lab-heading h3 { font-size:14px; }
+  .style-lab-history { font-size:13px; padding:3px 2px; }
+  .style-lab-seats { margin-top:4px; gap:4px; }
+  .style-lab-seats div+div { padding-left:6px; }
+  .style-lab-seats dd { margin:1px 0 0; font-size:12px; }
+  .style-lab-seats dt,.style-lab-personal span,.style-lab-verdict span { font-size:13px; }
+  .style-lab-seats b { font-size:17px; }
+  .style-lab .lesson-hand { flex:0 1 auto; overflow-y:auto; }
+  .style-lab-personal { padding-bottom:4px; }
+  .style-lab-personal strong,.style-lab-verdict strong { font-size:15px; }
+  .style-lab-compare h3 { margin:5px 0; font-size:14px; }
+  .style-lab-switch button { min-height:34px; padding:2px; font-size:14px; }
+  .style-lab-verdict { margin:5px 0; }
+  .style-lab-handline { margin-bottom:5px; }
+  .style-lab-handline span { padding:2px 4px; font-size:12px; }
+  .style-lab-record { padding:3px 14px 8px; }
+  .style-lab-record section { padding:5px 0; }
+}
+@media (orientation:landscape) and (max-height:350px) {
+  .style-lab .lesson-hand,.style-lab .lesson-context { padding:3px 7px; }
+  .style-lab-seats > div { display:grid; grid-template-columns:auto 1fr; gap:0 2px; align-items:baseline; }
+  .style-lab-seats dd:last-child { grid-column:1/-1; }
+  .style-lab-seats dt,.style-lab-seats dd { margin:0; font-size:12px; }
+  .style-lab-compare h3 { position:absolute; clip-path:inset(50%); height:1px; width:1px; overflow:hidden; margin:0; }
+  .style-lab-personal { padding-bottom:3px; margin-bottom:4px; }
+  .style-lab :is(.lesson-rack,.lesson-actions) { padding-block:3px; }
+  .style-lab .lesson-rack .playing-card { max-width:11vh; }
+}
+@media (orientation:landscape) and (max-height:285px) {
+  .style-lab-heading h3 { font-size:13px; }
+  .style-lab .lesson-context { padding-top:1px; }
+  .style-lab-seats { margin-top:0; }
+  .style-lab-seats dt,.style-lab-seats dd { line-height:1.15; }
+  .style-lab-personal,.style-lab-verdict { margin:1px 0; padding:1px 0; line-height:1.15; }
+  .style-lab .style-lab-compare { padding-block:2px; }
+  .style-lab .lesson-actions { padding-block:2px; }
+  .style-lab-switch button { min-height:30px; }
+  .style-lab-handline { display:none; }
+  .style-lab .lesson-actions .btn { min-height:34px; padding:3px; }
+}

@@ -1,0 +1,47 @@
+.room-home.finale-preview {
+  background: linear-gradient(100deg,#101c19f9,#19251df0 60%,#1c241bdc),var(--home-inn) center / cover,#16221b;
+}
+.finale-preview .room-home-inner { display: flex; width: min(1050px,92%); height: auto; min-height: 100svh; overflow: visible; }
+.finale-preview .preview-layout {
+  display: grid; grid-template-columns: minmax(0,1.15fr) minmax(0,1fr); grid-template-areas: 'title title' 'stage rules' 'music rules';
+  align-content: center; gap: 24px 36px; width: 100%; max-width: none; margin: auto; padding: 32px 0 42px;
+}
+.preview-layout h1,.preview-layout h2 { font-family: var(--serif); color: #f5dcac; }
+.preview-layout h1 { grid-area: title; margin: 0; font-size: clamp(1.8rem,4vw,3rem); }
+.preview-layout h2 { margin: 0 0 8px; font-size: 1.15rem; }
+.preview-stage { grid-area: stage; min-width: 0; }
+.preview-controls,.preview-tracks { display: flex; flex-wrap: wrap; gap: 7px; }
+.preview-controls { margin-bottom: 10px; }
+.preview-controls button,.preview-tracks button,.preview-stop {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; color: #f3e4c9; background: #21332c;
+  min-height: 40px; padding: 7px 12px; border: 1px solid #9a8966; border-radius: 4px; font: inherit; cursor: pointer;
+}
+.preview-controls button[aria-pressed=true],.preview-tracks button[aria-pressed=true] { background: #e4c48d; color: #282d22; border-color: #f7ddaa; }
+.preview-controls button:hover,.preview-tracks button:hover,.preview-stop:not(:disabled):hover { border-color: #ffdea1; }
+.finale-preview .preview-performance { width: 100%; max-height: none; overflow: hidden; box-shadow: none; }
+.preview-rules { grid-area: rules; align-self: start; padding-left: 24px; border-left: 1px solid #8b805954; }
+.preview-rules p { margin: 0 0 9px; line-height: 1.6; color: #e2d7c4; }
+.preview-rules table { width: 100%; margin: 12px 0 22px; border-collapse: collapse; text-align: center; color: #f3e4c8; }
+.preview-rules th,.preview-rules td { padding: 7px 2px; border-bottom: 1px solid #95835f63; font-weight: 400; }
+.preview-rules th:first-child { text-align: left; color: #dfc799; }
+.preview-sound { grid-area: music; }
+.preview-sound-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 9px; }
+.preview-sound-head h2 { display: flex; align-items: center; gap: 7px; margin: 0; }
+.preview-stop { min-height: 34px; padding: 4px 9px; font-size: .88rem; }
+.preview-stop:disabled { opacity: .5; cursor: default; }
+.preview-status { display: block; margin-top: 8px; font-size: .84rem; color: #d4c6ac; }
+@media (max-width: 740px) {
+  .finale-preview .preview-layout { grid-template-columns: minmax(0,1fr); grid-template-areas: 'title' 'stage' 'music' 'rules'; gap: 17px; }
+  .preview-rules { padding: 14px 0 0; border: 0; border-top: 1px solid #8b805954; }
+}
+@media (orientation: landscape) and (max-height: 540px) {
+  .room-home.finale-preview { height: auto; overflow: visible; }
+  .finale-preview .room-home-inner { width: min(100%,1050px); }
+  .finale-preview .preview-layout { grid-template-columns: minmax(0,1.2fr) minmax(0,1fr); grid-template-areas: 'title title' 'stage music' 'rules rules'; padding: 12px 0 24px; gap: 12px 18px; align-content: start; }
+  .preview-layout h1 { font-size: 1.55rem; }
+  .preview-performance .finale-summary { padding: 8px 10px 8px 0; }
+  .preview-performance .finale-summary h3 { font-size: 1.65rem; }
+  .preview-performance .finale-summary p { font-size: .8rem; }
+  .preview-performance .finale-illustration { min-height: 142px; }
+  .preview-rules { border: 0; padding: 0; }
+}

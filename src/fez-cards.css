@@ -1,0 +1,59 @@
+.playing-card.fez-card {
+  --index-ink: #152e32;
+  container-type: inline-size;
+  isolation: isolate;
+  color: var(--index-ink);
+  background: #fff9eb;
+}
+.playing-card.fez-card[data-suit="H"] { --index-ink: #ad263a; }
+.playing-card.fez-card[data-suit="C"] { --index-ink: #193b2c; }
+.playing-card.fez-card[data-suit="D"] { --index-ink: #b13627; }
+.playing-card.fez-card[data-suit="J"] { --index-ink: #48364d; }
+.playing-card.fez-card[data-suit="J"].red { --index-ink: #ad263a; }
+.playing-card.fez-card::after { display: none; }
+.fez-card-print {
+  position: absolute;
+  inset: 0;
+  display: block;
+  background-size: 900% 600%;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+.fez-card .fez-index {
+  position: absolute;
+  left: 1.2%;
+  top: 1.2%;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  min-width: 22%;
+  min-height: 26%;
+  padding: 0 1px 1px;
+  color: var(--index-ink);
+  background: #fff9eb;
+  border-radius: 2px;
+  pointer-events: none;
+}
+.fez-index b {
+  font: 700 clamp(13px, 30cqw, 25px)/.94 Georgia, 'Noto Serif SC', serif;
+  font-variant-numeric: lining-nums;
+  letter-spacing: -.055em;
+}
+.fez-index i {
+  font: normal clamp(9px, 19cqw, 16px)/1 Georgia, 'Segoe UI Symbol', serif;
+}
+.fez-card.numeric .fez-index {
+  top: 1%;
+  left: 1.8%;
+  min-width: 23%;
+  padding: 0;
+}
+.fez-card.numeric .fez-index b {
+  font: 700 clamp(12px, 35cqw, 32px)/.88 'Segoe UI', Arial, sans-serif;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: -.05em;
+}
+.fez-card[data-rank="10"] .fez-index b {font-size: clamp(11px, 29cqw, 28px)}
+.fez-card.numeric .fez-index i {font-size: clamp(8px, 18cqw, 16px);line-height:.88}
+.fez-card .wildmark { z-index: 2; }
+.fez-card .tick { z-index: 3; }

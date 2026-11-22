@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="zh-Hant">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>天宮的動作與表情</title>
+<style>
+  * { box-sizing: border-box; }
+  :root { font-family: "Microsoft JhengHei", system-ui, sans-serif; color: #f8eddb; background: #1a171a; }
+  body { margin: 0; min-height: 100vh; }
+  main { width: min(1390px, 100%); margin: auto; padding: clamp(20px, 4vw, 55px); }
+  h1 { margin: 0; font: 600 clamp(24px, 3vw, 40px)/1.25 Georgia, "Microsoft JhengHei", serif; letter-spacing: .03em; }
+  header { display: flex; flex-wrap: wrap; gap: 18px; justify-content: space-between; align-items: center; padding-bottom: 18px; }
+  button, input { font: inherit; }
+  button { background: #29242a; color: #e8dfd5; border: 1px solid #695d63; border-radius: 8px; min-height: 42px; padding: 8px 13px; cursor: pointer; }
+  #slow[aria-pressed=true] { color: #2a1e20; background: #eccba3; }
+  button:hover { border-color: #d1b794; }
+  button:focus-visible, input:focus-visible { outline: 3px solid #ffdd99; outline-offset: 3px; }
+  [role=tablist] { display: flex; flex-wrap: wrap; gap: 5px; }
+  [role=tab][aria-selected=true] { color: #2a1e20; background: #eccba3; border-color: #eccba3; font-weight: 700; }
+  .screen { background: #171418; border: 1px solid #50434b; border-radius: 12px; overflow: hidden; }
+  .crop { position: relative; overflow: hidden; margin: auto; width: min(100%, var(--max-w, 100%)); aspect-ratio: var(--aspect, 1536/816); }
+  video { position: absolute; display: block; max-width: none; pointer-events: none; }
+  .controls { display: flex; align-items: center; gap: 9px; padding: 12px 14px; border-top: 1px solid #50434b; background: #282329; }
+  .controls button { white-space: nowrap; }
+  .timeline { min-width: 80px; display: flex; align-items: center; flex: 1; gap: 12px; margin-left: 8px; }
+  input { flex: 1; min-width: 40px; accent-color: #e8c598; cursor: pointer; }
+  output { color: #e2d5c8; font-size: .82rem; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  #problem { margin: 12px 0 0; }
+  @media (max-width: 720px) {
+    main { padding: 16px 10px; }
+    header { align-items: start; flex-direction: column; gap: 14px; padding: 0 0 12px; }
+    h1 { margin-left: 2px; }
+    [role=tablist] { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .controls { flex-wrap: wrap; padding: 9px; }
+    .timeline { width: 100%; flex-basis: 100%; margin: 0; }
+  }
+</style>
+<main>
+  <header>
+    <h1>天宮的動作與表情</h1>
+    <div role="tablist" aria-label="檢視動作">
+      <button id="tab-all" type="button" role="tab" aria-controls="preview" aria-selected="true" data-mode="all">三款並看</button>
+      <button id="tab-a" type="button" role="tab" aria-controls="preview" aria-selected="false" tabindex="-1" data-mode="a">A 抬手敬禮</button>
+      <button id="tab-b" type="button" role="tab" aria-controls="preview" aria-selected="false" tabindex="-1" data-mode="b">B 胸前拍手</button>
+      <button id="tab-c" type="button" role="tab" aria-controls="preview" aria-selected="false" tabindex="-1" data-mode="c">C 伸手邀請</button>
+    </div>
+  </header>
+  <section class="screen" id="preview" role="tabpanel" aria-labelledby="tab-all">
+    <div class="crop">
+      <video muted playsinline loop preload="auto" aria-label="天宮的三款選角試映，每段均有全身與表情特寫" src="./athena-encore.mp4"></video>
+    </div>
+    <div class="controls">
+      <button type="button" id="toggle">播放</button>
+      <button type="button" id="replay">從頭播放</button>
+      <button type="button" id="slow" aria-pressed="false">半速</button>
+      <div class="timeline">
+        <input type="range" step="0.01" min="0" max="1" value="0" aria-label="影片進度（秒）" disabled>
+        <output aria-live="off">0.0 / 0.0 秒</output>
+      </div>
+    </div>
+  </section>
+  <p id="problem" role="alert" hidden>影片無法播放，請用支援 MP4 的瀏覽器開啟此檔案。</p>
+  <p><a href="../../#lobby" style="color:#eccba3">回到選角畫面</a></p>
+</main>
+<script>
+  const tabs = [...document.querySelectorAll('[role=tab]')];
+  const screen = document.querySelector('#preview');
+  const crop = document.querySelector('.crop');
+  const movie = document.querySelector('video');
+  const playButton = document.querySelector('#toggle');
+  const scrub = document.querySelector('input');
+  const time = document.querySelector('output');
+  const small = matchMedia('(max-width: 720px)');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  const sourceWidth = 1536, sourceHeight = 816;
+  const boxes = {all: [0,0,sourceWidth,sourceHeight], a: [24,12,488,790], b: [524,12,488,790], c: [1024,12,488,790]};
+  let manualView = false;
+
+  function show(mode) {
+    const [x, y, w, h] = boxes[mode];
+    crop.style.setProperty('--aspect', w + ' / ' + h);
+    // Keep the full character and controls visible when a tall single view is enlarged on desktop.
+    crop.style.setProperty('--max-w', mode === 'all' || small.matches ? '100%' : 'max(200px, ' + (w / h * 70) + 'svh)');
+    movie.style.width = (100 * sourceWidth / w) + '%';
+    movie.style.height = (100 * sourceHeight / h) + '%';
+    movie.style.left = (-100 * x / w) + '%';
+    movie.style.top = (-100 * y / h) + '%';
+    screen.setAttribute('aria-labelledby', 'tab-' + mode);
+    for (const tab of tabs) {
+      const active = tab.dataset.mode === mode;
+      tab.setAttribute('aria-selected', String(active));
+      tab.tabIndex = active ? 0 : -1;
+    }
+  }
+  for (const [i, tab] of tabs.entries()) {
+    tab.addEventListener('click', () => { manualView = true; show(tab.dataset.mode); });
+    tab.addEventListener('keydown', event => {
+      let next;
+      if (event.key === 'Home') next = 0;
+      else if (event.key === 'End') next = tabs.length - 1;
+      else if (event.key === 'ArrowLeft') next = (i + tabs.length - 1) % tabs.length;
+      else if (event.key === 'ArrowRight') next = (i + 1) % tabs.length;
+      else return;
+      event.preventDefault();
+      tabs[next].focus();
+      tabs[next].click();
+    });
+  }
+  function fitScreen() { show(manualView ? tabs.find(t => t.getAttribute('aria-selected') === 'true').dataset.mode : small.matches ? 'a' : 'all'); }
+  fitScreen();
+  small.addEventListener('change', fitScreen);
+
+  const slow = document.querySelector('#slow');
+  slow.addEventListener('click', () => {
+    const enabled = movie.playbackRate === 1;
+    movie.playbackRate = enabled ? 0.5 : 1;
+    slow.setAttribute('aria-pressed', String(enabled));
+  });
+
+  function updateTime() {
+    if (!Number.isFinite(movie.duration)) return;
+    scrub.disabled = false;
+    scrub.max = movie.duration;
+    scrub.value = movie.currentTime;
+    time.value = movie.currentTime.toFixed(1) + ' / ' + movie.duration.toFixed(1) + ' 秒';
+  }
+  function updatePlay() { playButton.textContent = movie.paused ? '播放' : '暫停'; }
+  function play() { movie.play().catch(updatePlay); }
+  movie.addEventListener('play', updatePlay);
+  movie.addEventListener('pause', updatePlay);
+  movie.addEventListener('loadedmetadata', updateTime);
+  movie.addEventListener('timeupdate', updateTime);
+  movie.addEventListener('seeked', updateTime);
+  function checkError() { document.querySelector('#problem').hidden = !movie.error; }
+  movie.addEventListener('error', checkError);
+  checkError();
+  updateTime();
+  playButton.addEventListener('click', () => movie.paused ? play() : movie.pause());
+  document.querySelector('#replay').addEventListener('click', () => { movie.currentTime = 0; play(); });
+  scrub.addEventListener('input', () => { movie.currentTime = Number(scrub.value); updateTime(); });
+  reduced.addEventListener('change', () => { if (reduced.matches) movie.pause(); });
+  if (!reduced.matches) play();
+</script>
+</html>
