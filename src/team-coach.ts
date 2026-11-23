@@ -20,6 +20,9 @@ function bombCost(m: Move) {
   return m.kind==='kings' ? 56 : m.kind==='flush' ? 37 : m.kind==='bomb' ? 23+3*m.cards.length : 0
 }
 function nextPlayers(seat: number) { return [1,2,3].map(i=>(seat+i)%4) }
+// Roughly what an extra lead is worth to the side that wins a trick, on the
+// same scale as shedding cards. Self-play results hardly change from 3 to 12.
+const LEAD_VALUE = 6
 
 function spendsReservedControl(move: Move, hand: Card[], level: string) {
   if (bombCost(move)) return true
@@ -131,10 +134,14 @@ function quickDecision(hand: Card[], level: string, target: Move|null, table: Pu
   // give the handoff/placement evaluation priority over packing our own cards.
   const handPlan=advanced && !finish.length && hand.length>5 && counts[mate]>4 &&
     opponents.every(s=>counts[s]>4) ? advancedHandPlanner(hand,level,style) : undefined
+  // Passing on an opponent's trick lets their side lead again unless our
+  // partner, who still acts after us, takes it back. That lead is not free.
+  const opponentHolds=holder>=0 && holder%2!==seat%2
+  const passCost=opponentHolds ? LEAD_VALUE*(afterPass.includes(mate) ? .5 : 1) : 0
   let best: {move: Move|null,reason: string,score: number}|undefined
   if (target) {
     const weight=feed(target,afterPass)
-    best={move:null,score:partnerHolds ? 0 : feedWeight*weight-120*passingRisk-(shortLeader?52:0),
+    best={move:null,score:partnerHolds ? 0 : feedWeight*weight-120*passingRisk-(shortLeader?52:0)-passCost,
       reason:partnerHolds?passReason:weight>.1?'過牌保留目前牌型。'+feedReason(target):
         '這圈先過，保留手牌，等下一次接手。'}
   }
@@ -159,7 +166,7 @@ function quickDecision(hand: Card[], level: string, target: Move|null, table: Pu
       if (points>reasonWeight) {reason=explanation;reasonWeight=points}
     }
     if (handPlan) {
-      const plan=handPlan(m)
+      const plan=handPlan(m,!!target)
       feature(plan.score,'這手打出後，餘牌可安排成 '+plan.turns+' 手。')
     }
     if (m===cheapestCover) feature(15,'依已出牌、明牌與餘張，這手就能守住牌權。')
