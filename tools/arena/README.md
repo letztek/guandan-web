@@ -37,3 +37,29 @@ node --disable-warning=ExperimentalWarning --experimental-strip-types tools/aren
 
 - DanLM 的「單局勝率」是隨機等級、隨機進貢的單局；這裡的「頭游率」取自完整對局中的每一局，兩者接近但不完全相同。
 - DanLM 用自己的引擎評測；這裡用本遊戲的規則，例如沒有「打 A 三次不過退回 2」。
+
+## 直接對 DanLM（需要 Apple Silicon Mac）
+
+DanLM 的引擎與模型只有 macOS ARM64 編譯檔，所以這一步要在 M 系列 Mac 上跑。裁判仍是本遊戲引擎；`danlm_host.py` 在 DanLM 引擎上開一個影子牌局，同步每一步，輪到 DanLM 的座位時問模型出什麼。兩邊引擎對某手牌或輪到誰有歧見時，該副牌會被跳過並印出原因（`skipped`），這個數字本身就是規則差異的量測。
+
+```bash
+git clone --depth 1 https://github.com/dashidhy/DanLM.git ~/DanLM
+```
+
+```bash
+python3.12 -m venv ~/danlm-venv && ~/danlm-venv/bin/pip install torch numpy onnxruntime
+```
+
+```bash
+PYTHONPATH=~/DanLM ~/danlm-venv/bin/python tools/arena/danlm_host.py ~/DanLM --selftest
+```
+
+```bash
+node --disable-warning=ExperimentalWarning --experimental-strip-types tools/arena/danlm.ts --danlm ~/DanLM --python ~/danlm-venv/bin/python --deals 100 --out danlm.jsonl
+```
+
+```bash
+node --disable-warning=ExperimentalWarning --experimental-strip-types tools/arena/dup-report.ts danlm.jsonl
+```
+
+`--agent` 可換成 `danzero_v1t` 或 `danzero_v0`（DanLM 附帶的 DanZero 重現版）。不接 DanLM 時可以用 `--mock` 測試整條流程。
