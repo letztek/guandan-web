@@ -50,6 +50,8 @@ function dealFor(deal: number): Match {
   return {...s, level, scores: [level, level], owner: 0}
 }
 
+// Plays whose declaration one engine had to guess (wild cards, no matching rank).
+let guessed = 0
 async function playHand(host: Host, start: Match, ours: number) {
   let s = structuredClone(start)
   const steps: Step[] = []
@@ -59,11 +61,15 @@ async function playHand(host: Host, start: Match, ours: number) {
     const seat = s.turn, before = s
     if (teamOf(seat) === ours) s = botStep(s, strength)
     else {
-      const {cards} = await host.send({op: 'act', seat})
+      const {cards, rank} = await host.send({op: 'act', seat})
       // DanLM names physical cards; our engine decides how they declare.
       const pool = [...s.hands[seat]]
       const picked = (cards as string[]).map(code => pool.splice(pool.findIndex(c => cardCode(c) === code), 1)[0])
-      const move = cards.length && picked.every(Boolean) ? interpret(picked, s.level, s.target) : null
+      // With wild cards the same cards declare several ways; take DanLM's own rank when it matches.
+      const declared = cards.length && picked.every(Boolean)
+        ? allMoves(picked, s.level, true).filter(m => beats(m, s.target)).find(m => declaredRank(m, s.level) === rank) : null
+      const move = declared ?? (cards.length && picked.every(Boolean) ? interpret(picked, s.level, s.target) : null)
+      if (move && !declared) guessed++
       if (cards.length && !move) throw new Error(`DanLM played ${cards.join(' ')}, which this game does not allow here`)
       if (!cards.length && !s.target) throw new Error('DanLM passed on a lead')
       s = takeTurn(s, seat, move)
@@ -78,6 +84,7 @@ async function playHand(host: Host, start: Match, ours: number) {
       couldBeat: legal.length > 0, couldBeatWithoutBomb: legal.some(m => !isBomb(m)), finished: !!move && s.hands[seat].length === 0})
     const result = await host.send({op: 'step', seat, cards: move ? move.cards.map(cardCode) : [],
       rank: move ? declaredRank(move, s.level) : null})
+    if (result.guessed) guessed++
     if (!mock && s.phase === 'play' && result.player !== s.turn) throw new Error(`turn differs: DanLM ${result.player}, referee ${s.turn}`)
   }
   const order = [...s.finish, ...[0, 1, 2, 3].filter(i => !s.finish.includes(i))]
@@ -105,7 +112,7 @@ try {
     for (const run of runs) if (args.out) appendFileSync(args.out, JSON.stringify(run) + '\n')
     const score = runs[0].ourScore + runs[1].ourScore
     total += score; played++
-    console.log(`deal ${deal} level ${start.level}: duplicate ${score >= 0 ? '+' : ''}${score}  (running ${(total / played).toFixed(2)} per deal, ${aborted} skipped)`)
+    console.log(`deal ${deal} level ${start.level}: duplicate ${score >= 0 ? '+' : ''}${score}  (running ${(total / played).toFixed(2)} per deal, ${aborted} skipped, ${guessed} guessed declarations)`)
   }
 } finally {
   host.close()
