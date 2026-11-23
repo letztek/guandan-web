@@ -11,12 +11,13 @@ import { allMoves, beats, ranks, type Move } from '../../src/rules.ts'
 import type { Difficulty } from '../../src/difficulty.ts'
 import { declaredRank, handCodes, rankCode, toAction, cardCode } from './njupt.ts'
 import { DanlmHost, danlmMove } from './danlm-client.ts'
-import { countBombs, isBomb, parseArgs, seeded, type Step } from './table.ts'
+import { countBombs, isBomb, parseArgs, policyFromArgs, seeded, type Step } from './table.ts'
 
 const args = parseArgs(process.argv.slice(2))
 const mock = process.argv.includes('--mock')
 if (!mock && !args.danlm) throw new Error('--danlm <path to the DanLM checkout> is required (or --mock)')
-const strength = (args.strength ?? 'advanced') as Difficulty
+const policy = await policyFromArgs(args)
+const strength = (args.model ? 'model' : args.strength ?? 'advanced') as Difficulty
 const deals = Number(args.deals ?? 20), from = Number(args.from ?? 0)
 
 function dealFor(deal: number): Match {
@@ -35,9 +36,9 @@ async function playHand(host: DanlmHost, start: Match, ours: number) {
   if (!mock && first.player !== s.turn) throw new Error(`first player differs: DanLM ${first.player}, referee ${s.turn}`)
   while (s.phase === 'play') {
     const seat = s.turn, before = s
-    if (teamOf(seat) === ours) s = botStep(s, strength)
+    if (teamOf(seat) === ours) s = policy ? takeTurn(s, seat, policy(s)) : botStep(s, strength)
     else {
-      const {cards, rank} = await host.send({op: 'act', seat})
+      const {cards, rank} = await host.send({op: 'act', seat, lead: !s.target})
       const {move, guessed: guess} = danlmMove(s, seat, cards, rank)
       if (guess) guessed++
       s = takeTurn(s, seat, move)

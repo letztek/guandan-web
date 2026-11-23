@@ -10,12 +10,13 @@ import { appendFileSync } from 'node:fs'
 import { shufflePack, startMatch, type Match } from '../../src/match.ts'
 import { ranks } from '../../src/rules.ts'
 import type { Difficulty } from '../../src/difficulty.ts'
-import { parseArgs, seeded, Table } from './table.ts'
+import { parseArgs, policyFromArgs, seeded, Table } from './table.ts'
 
 const args = parseArgs(process.argv.slice(2))
 if (!args.baselines) throw new Error('--baselines <path to DanLM/baselines> is required')
 const bot = args.bot ?? 'njupt-guandan-ai'
-const strength = (args.strength ?? 'advanced') as Difficulty
+const policy = await policyFromArgs(args)
+const strength = (args.model ? 'model' : args.strength ?? 'advanced') as Difficulty
 const deals = Number(args.deals ?? 20), from = Number(args.from ?? 0)
 
 function dealFor(deal: number): Match {
@@ -30,7 +31,7 @@ for (let deal = from; deal < from + deals; deal++) {
   const start = dealFor(deal)
   let score = 0
   for (const ours of [0, 1]) {
-    const table = new Table({python: args.python, baselines: args.baselines, bot, strength, ours})
+    const table = new Table({python: args.python, baselines: args.baselines, bot, strength, ours, policy})
     try {
       const {record} = await table.playHand(structuredClone(start), [], true)
       const ourScore = (record.firstTeam === ours ? 1 : -1) * record.gain

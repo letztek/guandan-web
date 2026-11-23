@@ -13,6 +13,13 @@ export function parseArgs(argv: string[]) {
   return Object.fromEntries(argv.reduce<string[][]>((pairs, word, i, all) =>
     word.startsWith('--') ? [...pairs, [word.slice(2), all[i + 1]]] : pairs, [])) as Record<string, string | undefined>
 }
+// --model <path to model.json>: a trained move scorer plays our seats.
+export async function policyFromArgs(args: Record<string, string | undefined>): Promise<Policy | undefined> {
+  if (!args.model) return undefined
+  const {loadModel} = await import('../train/model.ts')
+  const scorer = await loadModel(args.model)
+  return s => scorer.choose(s).move
+}
 export function seeded(seed: number) {
   return () => ((seed = (1664525 * seed + 1013904223) >>> 0) / 4294967296)
 }
@@ -47,15 +54,19 @@ export type Step = {seat: number, ours: boolean, size: number, action: Action, b
 export type HandRecord = {level: string, order: number[], gain: number, steps: Step[],
   rest: string[][], restBombs: number[], firstTeam: number}
 
-export type TableOptions = {python?: string, baselines: string, bot: string, strength: Difficulty, ours: number}
+// policy: when given, our seats play its choice instead of the game's bot (tribute stays with the bot).
+export type Policy = (s: Match) => Move | null
+export type TableOptions = {python?: string, baselines: string, bot: string, strength: Difficulty, ours: number, policy?: Policy}
 export class Table {
   remotes: Map<number, Remote>
   ours: number
   strength: Difficulty
+  policy?: Policy
   stats = {botErrors: 0, stateErrors: 0, ourMs: 0, ourDecisions: 0, sampleError: ''}
   constructor(o: TableOptions) {
     this.ours = o.ours
     this.strength = o.strength
+    this.policy = o.policy
     const botSeats = [0, 1, 2, 3].filter(seat => teamOf(seat) !== o.ours)
     this.remotes = new Map(botSeats.map(seat => [seat, new Remote(o.python ?? 'python3', o.baselines, o.bot, seat)]))
   }
@@ -120,9 +131,13 @@ export class Table {
       } else {
         const t = performance.now()
         // Same as botStep in the play phase, keeping the stated reason for the trace.
-        const advice = adviseTurn(s, this.strength)
-        s = takeTurn(s, seat, advice.move)
-        reason = advice.reason
+        if (this.policy) {
+          s = takeTurn(s, seat, this.policy(s))
+        } else {
+          const advice = adviseTurn(s, this.strength)
+          s = takeTurn(s, seat, advice.move)
+          reason = advice.reason
+        }
         this.stats.ourMs += performance.now() - t
         this.stats.ourDecisions++
       }

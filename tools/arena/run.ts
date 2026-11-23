@@ -8,12 +8,13 @@
 import { appendFileSync } from 'node:fs'
 import { nextHand, partner, shufflePack, startMatch } from '../../src/match.ts'
 import type { Difficulty } from '../../src/difficulty.ts'
-import { parseArgs, seeded, Table } from './table.ts'
+import { parseArgs, policyFromArgs, seeded, Table } from './table.ts'
 
 const args = parseArgs(process.argv.slice(2))
 const baselines = args.baselines
 const botName = args.bot ?? 'njupt-guandan-ai'
-const strength = (args.strength ?? 'advanced') as Difficulty
+const policy = await policyFromArgs(args)
+const strength = (args.model ? 'model' : args.strength ?? 'advanced') as Difficulty
 const games = Number(args.games ?? 10)
 const firstGame = Number(args.from ?? 0)
 if (!baselines) throw new Error('--baselines <path to DanLM/baselines> is required')
@@ -21,7 +22,7 @@ if (!baselines) throw new Error('--baselines <path to DanLM/baselines> is requir
 async function playGame(game: number) {
   const rng = seeded(1000003 * (game + 1) + Number(args.seed ?? 0))
   const ours = game % 2
-  const table = new Table({python: args.python, baselines: baselines!, bot: botName, strength, ours})
+  const table = new Table({python: args.python, baselines: baselines!, bot: botName, strength, ours, policy})
   const stats = {game, ours, bot: botName, strength, hands: 0, firsts: [0, 0], doubles: [0, 0], gains: [0, 0], winner: -1}
   let s = startMatch(shufflePack(rng), rng), donors: number[] = []
   try {
