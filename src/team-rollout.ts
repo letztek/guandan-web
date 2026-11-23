@@ -83,9 +83,18 @@ function continuePlay(hand: Card[], level: string, turn: number, target: Move | 
   return best
 }
 
+// The cheapest non-bomb play that beats the target, if any.
+function plainAnswer(hand: Card[], level: string, target: Move, cache: MoveCache) {
+  const plain = declarations(hand, level, cache).filter(move =>
+    !['bomb','flush','kings'].includes(move.kind) && beats(move, target))
+  plain.sort((a, b) => a.value - b.value || Object.keys(a.as).length - Object.keys(b.as).length)
+  return plain[0] ?? null
+}
+
 export function rollout(world: Card[][], level: string, target: Move | null, table: PublicTable,
     first: Move | null, cache: MoveCache, watchTen = false, advanced = false) {
   const root = table.seat, mate = partner(root)
+  const sameTeam = (seat: number) => seat === root || seat === mate
   // Reuse actual match transitions for pass re-entry, wind and settlement.
   // Input hands here are always synthetic deals conditioned on public faces.
   let game: Match = {version:2, hands:world, level, turn:root, scores:[level, level], owner:-1,
@@ -102,8 +111,12 @@ export function rollout(world: Card[][], level: string, target: Move | null, tab
       game.hands.some(cards=>cards.length>0 && cards.length<=6)
     if (game.trick>(raceForPlaces ? 5 : 3)) break
     const turn = game.turn
-    const move = ply === 0 ? first : continuePlay(game.hands[turn], level, turn, game.target,
+    let move = ply === 0 ? first : continuePlay(game.hands[turn], level, turn, game.target,
       game.holder, game.pending, game.hands.map(cards => cards.length), shown, cache)
+    // Real opponents seldom let our trick stand when a plain answer beats it.
+    if (ply > 0 && !move && game.target && !sameTeam(turn) && sameTeam(game.holder)) {
+      move = plainAnswer(game.hands[turn], level, game.target, cache)
+    }
     if (!game.target && turn === mate) mateLeads++
     if (!game.target && turn === root) ownLeads++
     if (ply > 0 && turn === root && !game.target && !nextRootLead) nextRootLead = move
@@ -117,7 +130,6 @@ export function rollout(world: Card[][], level: string, target: Move | null, tab
     game = takeTurn(game, turn, move)
   }
 
-  const sameTeam = (seat: number) => seat === root || seat === mate
   const finish = game.finish
   const mateOut = Number(finish.includes(mate) && !game.hands[mate].length)
   const rootOut = Number(finish.includes(root) && !game.hands[root].length)
