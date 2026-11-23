@@ -89,12 +89,12 @@ function strengthDescription(difficulty: Difficulty) {
     case 'beginner': return t('以當前牌型和自己的手牌為主，隊友最大時通常讓牌。',
       'Focuses on the current play and its own hand. Usually passes when its partner is winning.',
       '今の役と自分の手札を中心に判断し、ペアが優勢なら基本的にパスします。')
-    case 'standard': return t('看各席餘張與已出的牌，兼顧保留牌型和幫隊友先走。',
-      'Tracks hand sizes and played cards, balances keeping combinations intact with helping its partner go out.',
-      '残り枚数と出た札を見て、役を温存しながらペアの上がりを助けます。')
-    case 'advanced': return t('從起手規劃收尾。對手剩十張以內時，會參考各家之前的領牌和過牌，推算搶牌或讓隊友先走的後果。',
-      'Plans how to finish from the opening hand. When a rival has ten cards or fewer, weighs past leads and passes before contesting a trick or leaving it to a partner.',
-      '配られた札から上がりまでの手順を考えます。相手の残りが10枚以下になると、各席の過去の先手やパスを参考に、勝負するかペアに任せるかを読みます。')
+    case 'standard': return t('看各席餘張與已出的牌，兼顧保留牌型和幫隊友先走，不輕易把牌權讓給對手。',
+      'Tracks hand sizes and played cards, balances keeping combinations intact with helping its partner go out, and does not give away the lead cheaply.',
+      '残り枚数と出た札を見て、役を温存しながらペアの上がりを助け、相手に先手を簡単には渡しません。')
+    case 'advanced': return t('每次出牌前，依公開的牌推想其他三家可能的手牌，把幾種出法各自打到本副結束，有明顯較好的才改變打法。也會參考各家之前的領牌和過牌。',
+      'Before each play, imagines what the other three hands could hold from the public cards, plays several options through to the end of the deal, and changes course only for a clearly better one. Also weighs past leads and passes.',
+      '毎回、公開された札から他の3人の手札を推測し、いくつかの出し方を局の最後まで試算して、明らかに有利な手があるときだけ打ち方を変えます。各席の過去の先手やパスも参考にします。')
   }
 }
 
