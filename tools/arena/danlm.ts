@@ -5,14 +5,12 @@
 //
 // node --disable-warning=ExperimentalWarning --experimental-strip-types tools/arena/danlm.ts \
 //   --danlm ~/DanLM --deals 100 --out danlm.jsonl [--agent danlm_v1] [--python python3.12] [--mock]
-import { spawn } from 'node:child_process'
 import { appendFileSync } from 'node:fs'
-import { createInterface } from 'node:readline'
-import { fileURLToPath } from 'node:url'
 import { botStep, partner, shufflePack, startMatch, takeTurn, teamOf, type Match } from '../../src/match.ts'
-import { allMoves, beats, interpret, ranks, type Move } from '../../src/rules.ts'
+import { allMoves, beats, ranks, type Move } from '../../src/rules.ts'
 import type { Difficulty } from '../../src/difficulty.ts'
 import { declaredRank, handCodes, rankCode, toAction, cardCode } from './njupt.ts'
+import { DanlmHost, danlmMove } from './danlm-client.ts'
 import { countBombs, isBomb, parseArgs, seeded, type Step } from './table.ts'
 
 const args = parseArgs(process.argv.slice(2))
@@ -20,28 +18,6 @@ const mock = process.argv.includes('--mock')
 if (!mock && !args.danlm) throw new Error('--danlm <path to the DanLM checkout> is required (or --mock)')
 const strength = (args.strength ?? 'advanced') as Difficulty
 const deals = Number(args.deals ?? 20), from = Number(args.from ?? 0)
-
-class Host {
-  waiting: ((line: string) => void)[] = []
-  proc = spawn(args.python ?? 'python3', mock
-    ? [fileURLToPath(new URL('./danlm_host.py', import.meta.url)), '--mock']
-    : [fileURLToPath(new URL('./danlm_host.py', import.meta.url)), args.danlm!, args.agent ?? 'danlm_v1'],
-    {env: {...process.env, PYTHONPATH: args.danlm ?? ''}})
-  constructor() {
-    createInterface({input: this.proc.stdout}).on('line', line => this.waiting.shift()?.(line))
-    this.proc.stderr.on('data', chunk => process.env.ARENA_BOT_LOG && process.stderr.write(chunk))
-  }
-  async send(msg: object): Promise<any> {
-    const reply = await new Promise<string>(resolve => {
-      this.waiting.push(resolve)
-      this.proc.stdin.write(JSON.stringify(msg) + '\n')
-    })
-    const parsed = JSON.parse(reply)
-    if (parsed.error) throw new Error('DanLM host: ' + parsed.error)
-    return parsed
-  }
-  close() { this.proc.stdin.end(); this.proc.kill() }
-}
 
 function dealFor(deal: number): Match {
   const rng = seeded(7919 * (deal + 1) + Number(args.seed ?? 0))
@@ -52,7 +28,7 @@ function dealFor(deal: number): Match {
 
 // Plays whose declaration one engine had to guess (wild cards, no matching rank).
 let guessed = 0
-async function playHand(host: Host, start: Match, ours: number) {
+async function playHand(host: DanlmHost, start: Match, ours: number) {
   let s = structuredClone(start)
   const steps: Step[] = []
   const first = await host.send({op: 'start', hands: s.hands.map(h => handCodes(h, s.level)), level: rankCode(s.level), first: s.turn})
@@ -62,16 +38,8 @@ async function playHand(host: Host, start: Match, ours: number) {
     if (teamOf(seat) === ours) s = botStep(s, strength)
     else {
       const {cards, rank} = await host.send({op: 'act', seat})
-      // DanLM names physical cards; our engine decides how they declare.
-      const pool = [...s.hands[seat]]
-      const picked = (cards as string[]).map(code => pool.splice(pool.findIndex(c => cardCode(c) === code), 1)[0])
-      // With wild cards the same cards declare several ways; take DanLM's own rank when it matches.
-      const declared = cards.length && picked.every(Boolean)
-        ? allMoves(picked, s.level, true).filter(m => beats(m, s.target)).find(m => declaredRank(m, s.level) === rank) : null
-      const move = declared ?? (cards.length && picked.every(Boolean) ? interpret(picked, s.level, s.target) : null)
-      if (move && !declared) guessed++
-      if (cards.length && !move) throw new Error(`DanLM played ${cards.join(' ')}, which this game does not allow here`)
-      if (!cards.length && !s.target) throw new Error('DanLM passed on a lead')
+      const {move, guessed: guess} = danlmMove(s, seat, cards, rank)
+      if (guess) guessed++
       s = takeTurn(s, seat, move)
     }
     const done = s.events.slice(before.events.length).find(e => e.seat === seat && (e.kind === 'play' || e.kind === 'pass'))
@@ -92,7 +60,7 @@ async function playHand(host: Host, start: Match, ours: number) {
     rest: s.hands.map(h => handCodes(h, s.level)), restBombs: s.hands.map(h => countBombs(h, s.level))}
 }
 
-const host = new Host()
+const host = new DanlmHost({python: args.python, danlm: args.danlm, agent: args.agent, mock})
 let total = 0, played = 0, aborted = 0
 try {
   for (let deal = from; deal < from + deals; deal++) {

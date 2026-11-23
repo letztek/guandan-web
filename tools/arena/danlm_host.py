@@ -9,12 +9,14 @@ its seats is to play. A move or turn the two engines disagree on is reported as
 an error instead of being forced through.
 
 usage: PYTHONPATH=<DanLM> python3 danlm_host.py <DanLM> [agent]   (agent: danlm_v1 | danzero_v1t | danzero_v0)
-       python3 danlm_host.py --mock    (no DanLM: lead the first card, otherwise pass; tests the plumbing)
+       python3 danlm_host.py --mock    (no DanLM: lead the first card, otherwise pass; tests the plumbing.
+                                     An act message may say "lead": true/false for the mock; DanLM ignores it.)
        PYTHONPATH=<DanLM> python3 danlm_host.py <DanLM> --selftest   (one round of DanLM vs itself)
 
 Protocol, one JSON object per line each way:
-  {"op":"start","hands":[[codes]x4],"level":"T","first":seat}   -> {"ok":true,"player":p}
-  {"op":"act","seat":s}                                          -> {"cards":[codes],"rank":"9"} ([] = pass)
+  {"op":"start","hands":[[codes]x4],"level":"T","first":seat[,"levels":["T","5"]]} -> {"ok":true,"player":p}
+  {"op":"act","seat":s[,"top":64]}                               -> {"cards":[codes],"rank":"9"} ([] = pass)
+      with "top": also "legal" (count), "q": [[type, rank, "S5H5", value], ...] best first, and "argmaxAgrees"
   {"op":"step","seat":s,"cards":[codes],"rank":"9"}              -> {"ok":true,"player":p,"done":bool,"guessed":bool}
 "rank" is the declared rank; with wild cards the same cards can declare several ways.
 "guessed" means DanLM's engine had to pick among such declarations without a matching rank.
@@ -34,13 +36,14 @@ class Mock:
         self.leading = True
         self.turn = 0
 
-    def start(self, hands, level, first):
+    def start(self, hands, level, first, levels=None):
         self.hands = [list(h) for h in hands]
         self.leading, self.turn = True, first
         return first
 
-    def act(self, seat):
-        return {'cards': [self.hands[seat][0]] if self.leading else [], 'rank': None}
+    def act(self, seat, lead=None):
+        leading = self.leading if lead is None else lead
+        return {'cards': [self.hands[seat][0]] if leading else [], 'rank': None}
 
     def step(self, seat, cards, rank):
         for c in cards:
@@ -55,11 +58,12 @@ class DanLM:
         sys.path.insert(0, root)
         import numpy as np
         from danzero.engine import cards as C
-        from danzero.engine.actions import DIM_CARDS, DIM_PLAY_TYPE
+        from danzero.engine.actions import DIM_CARDS, DIM_PLAY_TYPE, play_type_of
         from danzero.engine.game import GuanDanRound
         from ui_agent import UIAgent
         self.np, self.C, self.Round = np, C, GuanDanRound
         self.dim_cards, self.dim_type = DIM_CARDS, DIM_PLAY_TYPE
+        self.play_type_of = play_type_of
         self.agent = UIAgent(agent_key)
         self.template = C.deal_hands(seed=0)[0]
         self.round = self.obs = None
@@ -84,10 +88,11 @@ class DanLM:
             v[self.card_int(c)] += 1
         return v
 
-    def start(self, hands, level, first):
+    def start(self, hands, level, first, levels=None):
         lv = RANKS.index(level) + 2
+        teams = tuple(RANKS.index(l) + 2 for l in levels) if levels else (lv, lv)
         self.agent.reset_round(lv)
-        self.round = self.Round(level=lv, hands=[self.vector(h) for h in hands], first_player=first, team_levels=(lv, lv))
+        self.round = self.Round(level=lv, hands=[self.vector(h) for h in hands], first_player=first, team_levels=teams)
         self.obs = self.round.get_observation()
         return int(self.obs.player)
 
@@ -95,13 +100,24 @@ class DanLM:
         counts = play[:self.dim_cards]
         return [self.code(i) for i in range(len(counts)) for _ in range(int(counts[i]))]
 
-    def act(self, seat):
+    def act(self, seat, top=0):
         if self.obs is None or int(self.obs.player) != seat:
             raise RuntimeError('turn mismatch: DanLM engine expects seat %s, referee asked seat %s'
                                % (None if self.obs is None else int(self.obs.player), seat))
         index = self.agent.select_play(self.obs, self.round)
         play = self.obs.legal_plays[index]
-        return {'cards': self.play_cards(play), 'rank': self.rank_of(play)}
+        reply = {'cards': self.play_cards(play), 'rank': self.rank_of(play)}
+        if top:
+            # Training targets: the model's values for its best candidates, chosen play included.
+            q = self.agent.get_q_values(self.obs, self.round)
+            order = [int(i) for i in self.np.argsort(-q)[:top]]
+            if index not in order:
+                order.append(int(index))
+            reply['legal'] = int(len(q))
+            reply['q'] = [[self.play_type_of(self.obs.legal_plays[i]), self.rank_of(self.obs.legal_plays[i]),
+                           ''.join(self.play_cards(self.obs.legal_plays[i])), round(float(q[i]), 4)] for i in order]
+            reply['argmaxAgrees'] = int(order[0]) == int(index)
+        return reply
 
     def step(self, seat, cards, rank):
         if int(self.obs.player) != seat:
@@ -134,15 +150,18 @@ def selftest(root):
     hands = bot.C.deal_hands(seed=7)
     codes = [[bot.code(i) for i in range(len(h)) for _ in range(int(h[i]))] for h in hands]
     player = bot.start(codes, '5', 0)
-    moves = 0
+    moves = agree = 0
     while True:
-        chosen = bot.act(player)
+        chosen = bot.act(player, 8)
+        assert chosen['q'] and chosen['legal'] >= len(chosen['q']) - 1, chosen
+        agree += chosen['argmaxAgrees']
         result = bot.step(player, chosen['cards'], chosen['rank'])
         moves += 1
         if result['done']:
             break
         player = result['player']
-    print('selftest ok: %d moves, finish order %s' % (moves, bot.round.finish_order))
+    print('selftest ok: %d moves, finish order %s, chosen play = best Q in %d of %d'
+          % (moves, bot.round.finish_order, agree, moves))
 
 
 def main():
@@ -158,9 +177,9 @@ def main():
         msg = json.loads(line)
         try:
             if msg['op'] == 'start':
-                reply = {'ok': True, 'player': bot.start(msg['hands'], msg['level'], msg['first'])}
+                reply = {'ok': True, 'player': bot.start(msg['hands'], msg['level'], msg['first'], msg.get('levels'))}
             elif msg['op'] == 'act':
-                reply = bot.act(msg['seat'])
+                reply = bot.act(msg['seat'], msg.get('top', 0)) if isinstance(bot, DanLM) else bot.act(msg['seat'], msg.get('lead'))
             else:
                 reply = dict(ok=True, **bot.step(msg['seat'], msg['cards'], msg.get('rank')))
         except Exception as e:

@@ -63,3 +63,19 @@ node --disable-warning=ExperimentalWarning --experimental-strip-types tools/aren
 ```
 
 `--agent` 可換成 `danzero_v1t` 或 `danzero_v0`（DanLM 附帶的 DanZero 重現版）。不接 DanLM 時可以用 `--mock` 測試整條流程。
+
+## 收集 DanLM 自我對戰資料（訓練用）
+
+四個座位都由 DanLM 出牌，本遊戲引擎當裁判，打完整場（2 打到 A，進貢與還貢用本遊戲的啟發式）。每副牌一行，記錄發牌、進貢、每一手出牌（本遊戲的宣告），以及 DanLM 對前 64 個候選的評分（Q 值）。格式寫在 `collect.ts` 開頭。
+
+```bash
+tools/arena/collect-overnight.sh 4 9
+```
+
+四個 worker 跑 9 小時，資料寫到 `~/danlm-data/*.jsonl.gz`，進度在 `~/danlm-data/logs/`。每 200 副牌寫一個壓縮分檔，中斷最多損失一個分檔。
+
+```bash
+node --disable-warning=ExperimentalWarning --experimental-strip-types tools/arena/replay.ts ~/danlm-data/*.jsonl.gz
+```
+
+`replay.ts` 用本遊戲引擎重建每一副並核對結果，失敗數應為 0。
