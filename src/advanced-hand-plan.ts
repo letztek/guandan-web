@@ -73,10 +73,12 @@ export function advancedHandPlanner(hand: Card[], level: string, style?: PlaySty
   }
 
   const starting = partition(fullMask)
-  return (move: Move) => {
+  // A lead spends one of our own turns at the front of the trick. A follow
+  // sheds cards on someone else's lead, so it costs no lead of our own.
+  return (move: Move, following = false) => {
     const left = fullMask ^ maskOf(move.cards)
     const after = partition(left)
-    const savedLeads = starting.turns - (1 + after.turns)
+    const savedLeads = starting.turns - ((following ? 0 : 1) + after.turns)
     let score = savedLeads * (style === 'attack' ? 12 : 10)
     if (after.turns > 1) {
       // These are potential ways to regain the lead, not certified winners.
