@@ -17,7 +17,8 @@ import { closeSync, mkdirSync, openSync, writeFileSync, writeSync } from 'node:f
 import { join } from 'node:path'
 import type { Match } from '../../src/match.ts'
 import type { Move } from '../../src/rules.ts'
-import { readRecords, replay } from '../arena/replay.ts'
+import { readRecords, replay, type HandRecord } from '../arena/replay.ts'
+import { rankCode } from '../arena/njupt.ts'
 import { danlmMove } from '../arena/danlm-client.ts'
 import { parseArgs } from '../arena/table.ts'
 import { ACTION_DIM, ACTION_SCALE, FEATURE_VERSION, STATE_DIM, STATE_SCALE, actionFeatures, actionKey, stateFeatures } from './features.ts'
@@ -64,14 +65,24 @@ function hash(text: string) {
 }
 
 const train = new Split('train'), val = new Split('val')
-const stats = {hands: 0, failedHands: 0, decisions: 0, unmapped: 0, chosenMissing: 0, merged: 0}
+const stats = {hands: 0, failedHands: 0, oldBridgeSkipped: 0, decisions: 0, unmapped: 0, chosenMissing: 0, merged: 0}
+
+// Before bridge version 2, DanLM and this game could read a run built with a
+// wild card differently (straight vs straight flush), so the two engines may
+// have disagreed about the table from that play on. Such hands are left out.
+const runKinds = ['straight', 'flush', 'pairs', 'steel']
+function divergedBeforeFix(record: HandRecord & {bridge?: number}) {
+  if ((record.bridge ?? 1) >= 2) return false
+  const wildCode = 'H' + rankCode(record.level)
+  return record.moves.some(m => m.kind && runKinds.includes(m.kind) && m.cards.includes(wildCode))
+}
 function decision(split: Split, s: Match, move: Move | null, q: [string, string, string, number][]) {
   const groups = new Map<string, {features: Uint8Array, value: number}>()
-  for (const [, rank, cardText, value] of q) {
+  for (const [type, rank, cardText, value] of q) {
     const cards = cardText.match(/../g) ?? []
     let candidate: Move | null
     try {
-      candidate = danlmMove(s, s.turn, cards, rank).move
+      candidate = danlmMove(s, s.turn, cards, rank, /flush/i.test(type)).move
     } catch {
       stats.unmapped++
       continue
@@ -90,6 +101,7 @@ function decision(split: Split, s: Match, move: Move | null, q: [string, string,
 
 for (const file of files) {
   for (const record of readRecords(file)) {
+    if (divergedBeforeFix(record)) {stats.oldBridgeSkipped++; continue}
     const split = hash(record.game) % 20 === 0 ? val : train
     try {
       replay(record, (s, index, move) => {

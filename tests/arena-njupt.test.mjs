@@ -47,3 +47,22 @@ test('following lists PASS first; leading has no PASS; hands sort by power', () 
   assert.deepEqual(leading.actions.map(a => a[0]), ['Single', 'Single', 'Pair'])
   assert.deepEqual(handCodes(take('JBJ-0', 'S9-0', 'H2-0', 'S3-0'), '2'), ['S3', 'S9', 'H2', 'HR'])
 })
+
+test('DanLM names runs by their highest rank, and the flush flag separates wild-built runs', async () => {
+  const { danlmRank, danlmMove } = await import('../tools/arena/danlm-client.ts')
+  const run = (ids, level, kind) => find(take(...ids), level, kind)
+  assert.equal(danlmRank(run(['SA-0', 'H2-0', 'C3-0', 'D4-0', 'S5-0'], '9', 'straight'), '9'), '5')
+  assert.equal(danlmRank(run(['S10-0', 'HJ-0', 'CQ-0', 'DK-0', 'SA-0'], '9', 'straight'), '9'), 'A')
+  assert.equal(danlmRank(run(['S3-0', 'H3-0', 'S4-0', 'H4-0', 'S5-0', 'H5-0'], '9', 'pairs'), '9'), '5')
+  assert.equal(danlmRank(run(['S7-0', 'H7-0', 'C7-0', 'S8-0', 'H8-0', 'C8-0'], '2', 'steel'), '2'), '8')
+  assert.equal(danlmRank(find(take('S9-0', 'H9-0'), '2', 'pair'), '2'), '9')
+  // Four hearts and the heart level card: a straight flush or a plain straight, both up to 7.
+  const hand = take('H3-0', 'H4-0', 'H5-0', 'H6-0', 'H2-0')
+  const s = {hands: [hand, [], [], []], level: '2', target: null}
+  const codes = hand.map(cardCode)
+  assert.equal(danlmMove(s, 0, codes, '7', true).move.kind, 'flush')
+  const plain = danlmMove(s, 0, codes, '7', false)
+  assert.equal(plain.move.kind, 'straight')
+  assert.equal(danlmRank(plain.move, '2'), '7')
+  assert.equal(plain.guessed, false)
+})

@@ -6,6 +6,7 @@
 //   --danlm ~/DanLM --python ~/danlm-venv/bin/python --out-dir ~/danlm-data --worker 0 --hours 9
 //
 // Output: <out-dir>/w<worker>-<run>-<shard>.jsonl.gz, one JSON line per hand:
+//   bridge                               danlm-client BRIDGE_VERSION (absent in data from before version 2)
 //   game, hand, level, scores, owner     the hand's level and both teams' levels when it was dealt
 //   dealt[4]                             hands as dealt, before tribute (card codes, see njupt.ts)
 //   resisted                             true when the hand opened with 抗貢
@@ -24,7 +25,7 @@ import { gzipSync } from 'node:zlib'
 import { botStep, nextHand, partner, shufflePack, startMatch, takeTurn, type Match } from '../../src/match.ts'
 import { declaredRank, handCodes, cardCode, rankCode } from './njupt.ts'
 import { parseArgs, seeded } from './table.ts'
-import { DanlmHost, danlmMove } from './danlm-client.ts'
+import { BRIDGE_VERSION, DanlmHost, danlmMove, danlmRank } from './danlm-client.ts'
 
 const args = parseArgs(process.argv.slice(2))
 const mock = process.argv.includes('--mock')
@@ -73,10 +74,10 @@ async function playGame(host: DanlmHost, game: number) {
     while (s.phase === 'play') {
       const seat = s.turn
       const reply = await host.send({op: 'act', seat, top, lead: !s.target})
-      const {move, guessed} = danlmMove(s, seat, reply.cards, reply.rank)
+      const {move, guessed} = danlmMove(s, seat, reply.cards, reply.rank, reply.flush)
       if (guessed) totals.guessed++
       s = takeTurn(s, seat, move)
-      const step = await host.send({op: 'step', seat, cards: move ? move.cards.map(cardCode) : [], rank: move ? declaredRank(move, level) : null})
+      const step = await host.send({op: 'step', seat, cards: move ? move.cards.map(cardCode) : [], rank: move ? danlmRank(move, level) : null, flush: move?.kind === 'flush'})
       if (step.guessed) totals.guessed++
       if (!mock && s.phase === 'play' && step.player !== s.turn) throw new Error(`turn differs: DanLM ${step.player}, referee ${s.turn}`)
       totals.decisions++
@@ -85,7 +86,7 @@ async function playGame(host: DanlmHost, game: number) {
         ...(reply.q && reply.legal > 1 ? {q: reply.q, legal: reply.legal, agrees: reply.argmaxAgrees} : {})})
     }
     const order = [...s.finish, ...[0, 1, 2, 3].filter(i => !s.finish.includes(i))]
-    records.push(JSON.stringify({game: `${worker}-${run}-${game}`, seed, hand: handNo, level, scores, owner,
+    records.push(JSON.stringify({bridge: BRIDGE_VERSION, game: `${worker}-${run}-${game}`, seed, hand: handNo, level, scores, owner,
       dealt, resisted, exchange, first, moves, order, gain: s.gain, won: s.won}))
     totals.hands++
     if (s.won || s.handNo >= 80) break

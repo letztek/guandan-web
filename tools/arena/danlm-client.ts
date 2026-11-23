@@ -4,8 +4,18 @@ import { spawn } from 'node:child_process'
 import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
 import type { Match } from '../../src/match.ts'
-import { allMoves, beats, interpret, type Move } from '../../src/rules.ts'
-import { cardCode, declaredRank } from './njupt.ts'
+import { allMoves, beats, interpret, ranks, type Move } from '../../src/rules.ts'
+import { cardCode, declaredRank, rankCode } from './njupt.ts'
+
+// DanLM names a run (straight, straight flush, three pairs, two triples) by its
+// highest rank; the competition protocol in njupt.ts names it by the lowest.
+const runLength: Record<string, number> = {straight: 5, flush: 5, pairs: 3, steel: 2}
+export function danlmRank(move: Move, level: string) {
+  const length = runLength[move.kind]
+  return length ? rankCode(['A', ...ranks][move.value + length - 1]) : declaredRank(move, level)
+}
+// Bumped when the bridge changes in a way that affects collected data.
+export const BRIDGE_VERSION = 2
 
 export type HostOptions = {python?: string, danlm?: string, agent?: string, mock?: boolean}
 
@@ -31,9 +41,9 @@ export class DanlmHost {
   close() { this.proc.stdin.end(); this.proc.kill() }
 }
 
-// DanLM names physical cards and a declared rank; find this game's declaration
-// of the same cards. guessed: no declaration had DanLM's rank (wild cards).
-export function danlmMove(s: Match, seat: number, cards: string[], rank: string | null): {move: Move | null, guessed: boolean} {
+// DanLM names physical cards, a declared rank and whether it is a straight flush;
+// find this game's declaration of the same cards. guessed: none matched (wild cards).
+export function danlmMove(s: Match, seat: number, cards: string[], rank: string | null, flush?: boolean): {move: Move | null, guessed: boolean} {
   if (!cards.length) {
     if (!s.target) throw new Error('DanLM passed on a lead')
     return {move: null, guessed: false}
@@ -44,7 +54,8 @@ export function danlmMove(s: Match, seat: number, cards: string[], rank: string 
     return index < 0 ? undefined : pool.splice(index, 1)[0]
   })
   if (!picked.every(Boolean)) throw new Error(`DanLM played ${cards.join(' ')}, which is not in this seat's hand`)
-  const declared = allMoves(picked as Move['cards'], s.level, true).filter(m => beats(m, s.target)).find(m => declaredRank(m, s.level) === rank)
+  const declared = allMoves(picked as Move['cards'], s.level, true).filter(m => beats(m, s.target))
+    .find(m => danlmRank(m, s.level) === rank && (flush === undefined || (m.kind === 'flush') === flush))
   const move = declared ?? interpret(picked as Move['cards'], s.level, s.target)
   if (!move) throw new Error(`DanLM played ${cards.join(' ')}, which this game does not allow here`)
   return {move, guessed: !declared}

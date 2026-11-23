@@ -15,10 +15,12 @@ usage: PYTHONPATH=<DanLM> python3 danlm_host.py <DanLM> [agent]   (agent: danlm_
 
 Protocol, one JSON object per line each way:
   {"op":"start","hands":[[codes]x4],"level":"T","first":seat[,"levels":["T","5"]]} -> {"ok":true,"player":p}
-  {"op":"act","seat":s[,"top":64]}                               -> {"cards":[codes],"rank":"9"} ([] = pass)
+  {"op":"act","seat":s[,"top":64]}                               -> {"cards":[codes],"rank":"9","flush":bool} ([] = pass)
       with "top": also "legal" (count), "q": [[type, rank, "S5H5", value], ...] best first, and "argmaxAgrees"
-  {"op":"step","seat":s,"cards":[codes],"rank":"9"}              -> {"ok":true,"player":p,"done":bool,"guessed":bool}
-"rank" is the declared rank; with wild cards the same cards can declare several ways.
+  {"op":"step","seat":s,"cards":[codes],"rank":"9","flush":bool} -> {"ok":true,"player":p,"done":bool,"guessed":bool}
+"rank" is the declared rank, DanLM's way: a run is named by its highest rank. With wild
+cards the same cards can declare several ways; "flush" separates a straight flush from a
+plain straight with the same highest rank.
 "guessed" means DanLM's engine had to pick among such declarations without a matching rank.
 Card codes are the competition spelling: suit + rank (T for ten), SB / HR for the jokers.
 """
@@ -45,7 +47,10 @@ class Mock:
         leading = self.leading if lead is None else lead
         return {'cards': [self.hands[seat][0]] if leading else [], 'rank': None}
 
-    def step(self, seat, cards, rank):
+    def is_flush(self, play):
+        return 'flush' in str(self.play_type_of(play)).lower()
+
+    def step(self, seat, cards, rank, flush=None):
         for c in cards:
             self.hands[seat].remove(c)
         self.leading = False
@@ -106,7 +111,7 @@ class DanLM:
                                % (None if self.obs is None else int(self.obs.player), seat))
         index = self.agent.select_play(self.obs, self.round)
         play = self.obs.legal_plays[index]
-        reply = {'cards': self.play_cards(play), 'rank': self.rank_of(play)}
+        reply = {'cards': self.play_cards(play), 'rank': self.rank_of(play), 'flush': self.is_flush(play)}
         if top:
             # Training targets: the model's values for its best candidates, chosen play included.
             q = self.agent.get_q_values(self.obs, self.round)
@@ -119,7 +124,10 @@ class DanLM:
             reply['argmaxAgrees'] = int(order[0]) == int(index)
         return reply
 
-    def step(self, seat, cards, rank):
+    def is_flush(self, play):
+        return 'flush' in str(self.play_type_of(play)).lower()
+
+    def step(self, seat, cards, rank, flush=None):
         if int(self.obs.player) != seat:
             raise RuntimeError('turn mismatch: DanLM engine expects seat %s, referee played seat %s' % (int(self.obs.player), seat))
         want = sorted(cards)
@@ -129,7 +137,10 @@ class DanLM:
         guessed = False
         if len(matches) > 1:
             # Same cards, several declarations (wild cards): prefer the claimed rank.
-            ranked = [i for i in matches if rank and self.rank_of(self.obs.legal_plays[i]) == rank]
+            # A wild card can make the same five cards a straight flush or a plain straight, both
+            # named by their highest rank, so the flush flag decides between them.
+            ranked = [i for i in matches if rank and self.rank_of(self.obs.legal_plays[i]) == rank
+                      and (flush is None or self.is_flush(self.obs.legal_plays[i]) == flush)]
             guessed = not ranked
             matches = ranked or matches
         play = self.obs.legal_plays[matches[0]]
@@ -155,7 +166,8 @@ def selftest(root):
         chosen = bot.act(player, 8)
         assert chosen['q'] and chosen['legal'] >= len(chosen['q']) - 1, chosen
         agree += chosen['argmaxAgrees']
-        result = bot.step(player, chosen['cards'], chosen['rank'])
+        result = bot.step(player, chosen['cards'], chosen['rank'], chosen['flush'])
+        assert not result['guessed'], 'declaration of %s had to be guessed' % chosen
         moves += 1
         if result['done']:
             break
@@ -181,7 +193,8 @@ def main():
             elif msg['op'] == 'act':
                 reply = bot.act(msg['seat'], msg.get('top', 0)) if isinstance(bot, DanLM) else bot.act(msg['seat'], msg.get('lead'))
             else:
-                reply = dict(ok=True, **bot.step(msg['seat'], msg['cards'], msg.get('rank')))
+                reply = dict(ok=True, **(bot.step(msg['seat'], msg['cards'], msg.get('rank'), msg.get('flush'))
+                                         if isinstance(bot, DanLM) else bot.step(msg['seat'], msg['cards'], msg.get('rank'))))
         except Exception as e:
             reply = {'error': str(e), 'trace': traceback.format_exc(limit=3)}
         out.write(json.dumps(reply) + '\n')
