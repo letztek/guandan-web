@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react'
 import { assetPath } from './assets'
 import type { LocalGame } from './local-game'
 import { partners } from './partner-roster'
-import { Icon, Modal, PlayingCard } from './ui'
+import { GameVersion, Icon, Modal, PlayingCard } from './ui'
 import { difficultyNames, type Difficulty, type BotSide, type BotStrengths } from './difficulty'
 import { getLanguage, languages, localizedName, setLanguage, translate as t, type Language } from './i18n'
 import './home.css'
@@ -73,6 +73,7 @@ export function Home({save,onStart,onResume,onTutorial,onSettings}: HomeProps) {
         {save?.storage==='memory'?t('此瀏覽器無法儲存，離開後進度會遺失。','This browser cannot save your progress.','このブラウザーでは進行状況を保存できません。'):
           save?.storage==='tab'?t('目前只能保留在此分頁，關閉後進度會遺失。','Progress lasts until you close this tab.','進行状況はこのタブを閉じるまで保持されます。'):
           t('對局進度會自動保存在此裝置的瀏覽器。','Progress is saved automatically in this browser.','進行状況はこのブラウザーに自動保存されます。')}
+        <GameVersion/>
       </footer>
     </div>
   </div>

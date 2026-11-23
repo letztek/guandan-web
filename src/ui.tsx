@@ -1,10 +1,15 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { version } from '../package.json'
 import { symbols, wild, type Card } from './rules'
 import { assetPath } from './assets'
 import { cardFaceIndex } from './fez-deck'
 import { translate as t } from './i18n'
 import { cardName } from './match-l10n'
 import './fez-cards.css'
+
+export function GameVersion() {
+  return <small className="game-version">{t('版本', 'Version', 'バージョン')} v{version}</small>
+}
 
 const strokes:Record<string,ReactNode>={
   cards:<><path d="m5 7-2 1 4 12 3-1M8 5l-2 .5 3 13 3-.6"/><rect x="10" y="3" width="11" height="15" rx="2"/><path d="m15.5 7 2.4 3.4-2.4 3.4-2.4-3.4z"/></>,
