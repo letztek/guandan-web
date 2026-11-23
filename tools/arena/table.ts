@@ -4,7 +4,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
-import { botStep, exchangeOptions, giveCard, partner, takeTurn, teamOf, type Match } from '../../src/match.ts'
+import { adviseTurn, botStep, exchangeOptions, giveCard, partner, takeTurn, teamOf, type Match } from '../../src/match.ts'
 import type { Difficulty } from '../../src/difficulty.ts'
 import { allMoves, beats, remaining, type Move } from '../../src/rules.ts'
 import { cardCode, handCodes, legalActions, rankCode, toAction, type Action } from './njupt.ts'
@@ -43,7 +43,7 @@ class Remote {
 // One decision in the play phase, seen from the seat that made it.
 export type Step = {seat: number, ours: boolean, size: number, action: Action, bomb: boolean,
   target: string | null, holder: 'partner' | 'opponent' | null, holderSeat: number, counts: number[],
-  couldBeat: boolean, couldBeatWithoutBomb: boolean, finished: boolean}
+  couldBeat: boolean, couldBeatWithoutBomb: boolean, finished: boolean, reason?: string}
 export type HandRecord = {level: string, order: number[], gain: number, steps: Step[],
   rest: string[][], restBombs: number[], firstTeam: number}
 
@@ -112,13 +112,17 @@ export class Table {
     while (s.phase === 'play') {
       const seat = s.turn, before = s
       const ours = !this.remotes.has(seat)
+      let reason: string | undefined
       if (!ours) {
         const {options, actions} = legalActions(s.hands[seat], s.level, s.target)
         const index = await this.ask(s, seat, 'play', actions, cur)
         s = takeTurn(s, seat, options[index] ?? options[0])
       } else {
         const t = performance.now()
-        s = botStep(s, this.strength)
+        // Same as botStep in the play phase, keeping the stated reason for the trace.
+        const advice = adviseTurn(s, this.strength)
+        s = takeTurn(s, seat, advice.move)
+        reason = advice.reason
         this.stats.ourMs += performance.now() - t
         this.stats.ourDecisions++
       }
@@ -132,7 +136,7 @@ export class Table {
           holder: !before.target ? null : before.holder === partner(seat) ? 'partner' : 'opponent',
           holderSeat: before.target ? before.holder : -1,
           counts: before.hands.map(h => h.length), couldBeat: legal.length > 0,
-          couldBeatWithoutBomb: legal.some(m => !isBomb(m)), finished: !!move && s.hands[seat].length === 0})
+          couldBeatWithoutBomb: legal.some(m => !isBomb(m)), finished: !!move && s.hands[seat].length === 0, ...(reason ? {reason} : {})})
       }
       const holder = s.target ? s.holder : before.holder, target = s.target ?? before.target
       await this.tell({type: 'notify', stage: 'play', curPos: seat, curAction: cur.action,
