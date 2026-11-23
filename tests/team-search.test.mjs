@@ -40,14 +40,3 @@ test('a search decision names both plays and the measured difference in every la
   assert.match(average, /平均每副多升 1\.0 級。/)
   assert.doesNotMatch(translateReason(average, 'en'), /\p{Script=Han}/u)
 })
-
-test('simulated opponents answer our trick with their cheapest plain play, never a bomb', async () => {
-  const { pressingFollow } = await import('../src/team-search.ts')
-  const pick = ids => deck().filter(card => ids.includes(card.id))
-  const target = allMoves(pick(['S9-0']), '2').find(move => move.kind === 'single')
-  const answer = pressingFollow(pick(['SK-0', 'HJ-0', 'C3-0', 'S5-0', 'H5-0', 'C5-0', 'D5-0']), '2', target)
-  assert.equal(answer.kind, 'single')
-  assert.equal(answer.cards[0].rank, 'J')
-  // Only a bomb beats the nine here, so the plain answer is to let it stand.
-  assert.equal(pressingFollow(pick(['C3-0', 'S5-0', 'H5-0', 'C5-0', 'D5-0']), '2', target), null)
-})

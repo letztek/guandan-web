@@ -1,4 +1,4 @@
-import { allMoves, beats, names, type Card, type Move } from './rules.ts'
+import { names, type Card, type Move } from './rules.ts'
 import { takeTurn, type Match } from './match.ts'
 import { samplePublicHands } from './team-worlds.ts'
 import { quickTeamSuggestion, type PublicTable } from './team-coach.ts'
@@ -16,7 +16,6 @@ export type SearchLine = { move: Move | null, outcomes: Outcome[], value: number
 export function playOut(world: Card[][], level: string, target: Move | null, table: PublicTable,
     first: Move | null, styles: (PlayStyle | undefined)[]): Outcome {
   const root = table.seat
-  const ours = (seat: number) => seat % 2 === root % 2
   let game: Match = {version:2, hands:world, level, turn:root, scores:[level, level], owner:-1,
     handNo:1, trick:1, phase:'play', target, holder:table.holder, pending:table.pending,
     finish:table.finish, events:[], exchange:null, won:false, gain:0}
@@ -38,26 +37,16 @@ export function playOut(world: Card[][], level: string, target: Move | null, tab
     // As at the table, the declaration on top is public but its physical copies are not.
     const top = game.target && {...game.target, as:{},
       cards:game.target.cards.map(({suit, rank}, i) => ({suit, rank, id:'table-' + i}))}
-    let move = quickTeamSuggestion(game.hands[seat], level, top, view, styles[seat]).move
-    if (!move && top && !ours(seat) && ours(game.holder)) move = pressingFollow(game.hands[seat], level, top)
+    const move = quickTeamSuggestion(game.hands[seat], level, top, view, styles[seat]).move
     record(seat, move)
     game = takeTurn(game, seat, move)
   }
+  const ours = (seat: number) => seat % 2 === root % 2
   if (game.phase !== 'result') return {value:0, teamFirst:0, teamDouble:0, enemyDouble:0}
   const [winner, second] = game.finish
   const double = game.gain === 3
   return {value:ours(winner) ? game.gain : -game.gain, teamFirst:Number(ours(winner)),
     teamDouble:Number(double && ours(winner) && ours(second)), enemyDouble:Number(double && !ours(winner))}
-}
-
-// Opponents at a real table seldom let our trick stand when they can answer
-// without a bomb. Assuming they pass whenever the table heuristic would
-// makes holding back look safer than it is, so simulated opponents contest
-// with their cheapest plain answer instead.
-export function pressingFollow(hand: Card[], level: string, target: Move): Move | null {
-  const plain = allMoves(hand, level).filter(m => !['bomb','flush','kings'].includes(m.kind) && beats(m, target))
-  plain.sort((a, b) => a.value - b.value || Object.keys(a.as).length - Object.keys(b.as).length)
-  return plain[0] ?? null
 }
 
 // Every candidate faces the same sampled deals (common random numbers), so a
