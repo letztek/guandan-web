@@ -8,6 +8,7 @@ import { partnerResponse, unseenCards } from './partner-tactics.ts'
 import { controlsFromPublicCards, publicFinish } from './public-finish.ts'
 import { advancedHandPlanner } from './advanced-hand-plan.ts'
 import type { PublicSeatHistory } from './public-behavior.ts'
+import { clearlyBetter, searchLines, searchReason } from './team-search.ts'
 
 type Face = Pick<Card,'rank'|'suit'>
 // No hidden hand is part of the strategy API. shown contains only still-held
@@ -376,6 +377,40 @@ export function teamSuggestion(hand: Card[], level: string, target: Move|null, t
   const protectedPlan = strength==='advanced' && publicFinish(hand,level,target,table,legal)
   if (protectedPlan) return {...baseline,...protectedPlan,
     reason:attachmentReason(protectedPlan.move,baseline.moves,hand,level,protectedPlan.reason)}
+  const planned = projectedSuggestion(hand,level,target,table,strength,style,baseline,legal)
+  return advanced ? searchedSuggestion(hand,level,target,table,style,planned,legal) : planned
+}
+
+// Advanced seats play each serious candidate to the end of the deal on the
+// same sampled hands. The table plan stands unless another play is clearly better.
+function searchedSuggestion(hand: Card[], level: string, target: Move|null, table: PublicTable,
+    style: PlayStyle|undefined, planned: TeamAdvice, legal: Move[]): TeamAdvice {
+  if (!legal.length || (!target && legal.length===1)) return planned
+  // A full opening hand makes every playout longer; compare fewer, likelier lines.
+  const opening = hand.length>18
+  // A sampled projection alone never pays for bombing a partner's trick or
+  // breaking the level pair over it; those cases need the proofs checked above.
+  const allyLeads = !!target && table.holder===(table.seat+2)%4
+  const keepsControl = (move: Move|null) => !allyLeads || !move || move===planned.move ||
+    !spendsReservedControl(move,hand,level)
+  const choices = candidatePlays(legal, planned.move, target).filter(keepsControl).slice(0, opening ? 8 : 12)
+  if (choices.length<2) return planned
+  const lines = searchLines(hand, level, target, table, choices, opening ? 8 : 16, style)
+  const reference = lines?.find(line=>line.move===planned.move)
+  if (!lines || !reference) return planned
+  let best = reference
+  for (const line of lines) {
+    if (line.value>best.value && line.value>reference.value+.15 && clearlyBetter(line,reference)) best=line
+  }
+  if (best===reference) return planned
+  return {...planned, move:best.move,
+    reason:attachmentReason(best.move,planned.moves,hand,level,searchReason(best,reference))}
+}
+
+type TeamAdvice = {move: Move|null, reason: string, moves: Move[]}
+function projectedSuggestion(hand: Card[], level: string, target: Move|null, table: PublicTable,
+    strength: Difficulty, style: PlayStyle|undefined, baseline: TeamAdvice, legal: Move[]): TeamAdvice {
+  const advanced=strength==='advanced'
   const partnerCount = table.counts[(table.seat+2)%4]
   // Standard concentrates the search on handoffs. Advanced also looks for
   // defenses before either opponent goes out, using the same public boundary.

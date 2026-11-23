@@ -17,6 +17,21 @@ export function translateReason(text: string, language: Exclude<Language, 'zh-Ha
 }
 
 const dynamic: Array<readonly [RegExp, string, string]> = [
+  [/推演 (\d+) 種可能的牌局到本副結束，選擇「(.+?)」而不是「(.+?)」：/g,
+    'Across $1 possible deals played to the end, $2 beats $3: ',
+    '考えられる$1通りの配り方を最後まで試算すると、「$2」は「$3」より有利です。'],
+  [/我方拿頭游的比例由 (\d+)% 提高到 (\d+)%。/g,
+    'your team finishes first in $2% of them instead of $1%. ',
+    'チームが1位になる展開が$1%から$2%に増えます。'],
+  [/我方包辦前兩名的比例由 (\d+)% 提高到 (\d+)%。/g,
+    'your team takes first and second in $2% of them instead of $1%. ',
+    'チームで1、2位を取る展開が$1%から$2%に増えます。'],
+  [/對手包辦前兩名的比例由 (\d+)% 降到 (\d+)%。/g,
+    'the opponents take first and second in $2% of them instead of $1%. ',
+    '相手に1、2位を取られる展開が$1%から$2%に減ります。'],
+  [/平均每副多升 ([\d.]+) 級。/g,
+    'on average your team gains $1 more levels per deal. ',
+    '1局あたり平均$1レベル多く上がれます。'],
   [/這手打出後，餘牌可安排成 (\d+) 手。/g,
     'After this play, your remaining cards can be grouped into $1 plays. ',
     'この手を出すと、残りの札は$1手にまとめられます。'],
@@ -170,6 +185,7 @@ const reasons: Record<string, readonly [string, string]> = {
 
 const words: Record<string, readonly [string, string]> = {
   '三連對': ['three consecutive pairs', '3連続のペア'], '鋼板': ['two consecutive triples', '2連続のスリーカード'],
+  '三帶對': ['full house', 'フルハウス'], ' 帶 ': [' with ', 'と'], '過牌': ['pass', 'パス'],
   '四王': ['four jokers', 'ジョーカー4枚'], '同花順': ['straight flush', 'ストレートフラッシュ'],
   '葫蘆': ['full house', 'フルハウス'], '順子': ['straight', 'ストレート'],
   '炸彈': ['bomb', 'ボム'], '單張': ['single', '1枚'], '三張': ['triple', 'スリーカード'],

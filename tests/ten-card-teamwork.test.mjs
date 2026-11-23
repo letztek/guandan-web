@@ -7,7 +7,7 @@ import { tenCardGame } from './fixtures/ten-card-game.mjs'
 const advice = game => adviseTurn(game,'advanced','support')
 const faces = cards => cards.map(card=>card.suit+card.rank).sort()
 
-test('the advanced partner can stop the ten-card leader or leave the same play to a teammate', () => {
+test('the advanced partner stops the ten-card leader and takes a one-card partner\'s trick only to set up first and second', () => {
   const block = tenCardGame('block'), yieldToMate = tenCardGame('yield')
   assert.deepEqual(block.hands[2], yieldToMate.hands[2])
   assert.deepEqual(block.target,yieldToMate.target)
@@ -25,10 +25,18 @@ test('the advanced partner can stop the ten-card leader or leave the same play t
   assert.match(stop.reason,/壓|攔/)
   assert.equal(takeTurn(block,2,stop.move).hands[2].length,3)
 
-  assert.equal(letThrough.move,null)
-  assert.match(letThrough.reason,/10 張/)
-  assert.match(letThrough.reason,/隊友.*(?:剩 1 張|一張)/)
-  assert.match(letThrough.reason,/先過|過牌/)
+  // Passing lets the one-card partner go out first, but leaves this seat with
+  // eight cards. Played to the end of the deal on sampled hands, taking the
+  // trick with the kings sheds five of them and sets up first and second place.
+  assert.equal(letThrough.move?.kind,'full')
+  assert.equal(letThrough.move.label,'K 帶 8')
+  assert.match(letThrough.reason,/推演 \d+ 種可能的牌局到本副結束/)
+  assert.match(letThrough.reason,/包辦前兩名的比例由 \d+% 提高到 \d+%/)
+  // Without the full-deal search, the table plan still leaves the trick to the partner.
+  const standardYield = adviseTurn(yieldToMate,'standard','support')
+  assert.equal(standardYield.move,null)
+  assert.match(standardYield.reason,/隊友.*(?:剩 1 張|一張)/)
+  assert.match(standardYield.reason,/先過|過牌/)
   assert.ok(allMoves(yieldToMate.hands[2],'2').some(move=>beats(move,yieldToMate.target)))
   const afterPass = takeTurn(yieldToMate,2,null)
   assert.equal(afterPass.turn,3)
