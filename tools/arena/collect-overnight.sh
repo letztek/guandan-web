@@ -19,7 +19,7 @@ pids=()
 for ((w = 0; w < workers; w++)); do
   OMP_NUM_THREADS=$threads MKL_NUM_THREADS=$threads \
     node --disable-warning=ExperimentalWarning --experimental-strip-types tools/arena/collect.ts \
-      --danlm ~/DanLM --python ~/danlm-venv/bin/python --out-dir "$out" --worker "$w" --hours "$hours" "${extra[@]}" \
+      --danlm ~/DanLM --python ~/danlm-venv/bin/python --out-dir "$out" --worker "$w" --hours "$hours" ${extra[@]+"${extra[@]}"} \
       >> "$out/logs/w$w.log" 2>&1 &
   pids+=($!)
 done
