@@ -11,7 +11,8 @@
 //   actions.u8  [M, ACTION_DIM]   candidate plays, grouped by decision
 //   q.f32       [M]               DanLM's value for each candidate
 //   offsets.i32 [N + 1]           decision i owns actions offsets[i] .. offsets[i+1]
-//   chosen.i32  [N]               index within the group of the play DanLM made
+//   chosen.i32  [N]               index within the group of the play DanLM made (or would have
+//                                 made, at a model seat in --model data)
 //   meta.json                     sizes, feature version and scales
 import { closeSync, mkdirSync, openSync, writeFileSync, writeSync } from 'node:fs'
 import { join } from 'node:path'
@@ -65,7 +66,7 @@ function hash(text: string) {
 }
 
 const train = new Split('train'), val = new Split('val')
-const stats = {hands: 0, failedHands: 0, oldBridgeSkipped: 0, decisions: 0, unmapped: 0, chosenMissing: 0, merged: 0}
+const stats = {hands: 0, failedHands: 0, oldBridgeSkipped: 0, decisions: 0, teacherLabels: 0, unmapped: 0, chosenMissing: 0, merged: 0}
 
 // Before bridge version 2, DanLM and this game could read a run built with a
 // wild card differently (straight vs straight flush), so the two engines may
@@ -76,6 +77,7 @@ function divergedBeforeFix(record: HandRecord & {bridge?: number}) {
   const wildCode = 'H' + rankCode(record.level)
   return record.moves.some(m => m.kind && runKinds.includes(m.kind) && m.cards.includes(wildCode))
 }
+// move: the play DanLM chose here (for --model data, the recorded teacher, not the model's move).
 function decision(split: Split, s: Match, move: Move | null, q: [string, string, string, number][]) {
   const groups = new Map<string, {features: Uint8Array, value: number}>()
   for (const [type, rank, cardText, value] of q) {
@@ -105,8 +107,19 @@ for (const file of files) {
     const split = hash(record.game) % 20 === 0 ? val : train
     try {
       replay(record, (s, index, move) => {
-        const q = record.moves[index].q
-        if (q && q.length > 1) decision(split, s, move, q)
+        const {q, teacher} = record.moves[index]
+        if (!q || q.length < 2) return
+        let chosen = move
+        if (teacher) {
+          try {
+            chosen = danlmMove(s, s.turn, teacher.cards, teacher.rank, teacher.flush).move
+            stats.teacherLabels++
+          } catch {
+            stats.unmapped++
+            return
+          }
+        }
+        decision(split, s, chosen, q)
       })
       stats.hands++
     } catch (error) {

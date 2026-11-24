@@ -50,3 +50,15 @@ node --disable-warning=ExperimentalWarning --experimental-strip-types tools/aren
 - `export.ts` 依遊戲 id 分出約 5% 當驗證集；DanLM 的候選對應不到本遊戲宣告時記為 `unmapped`。
 - `train.py` 的損失是兩項相加：對 DanLM 各候選 Q 值的均方誤差，加上朝 DanLM 實際選擇的交叉熵（權重 `--ce-weight`）。驗證時看 `agree`，即模型最高分的出牌等於 DanLM 選擇的比例。`--limit N` 只用前 N 個決策，適合快速試跑。
 - arena 的 `run.ts`、`duplicate.ts`、`danlm.ts` 都接受 `--model`：我方座位改由模型出牌，進貢仍用遊戲的啟發式。
+
+## DAgger：讓模型自己下，DanLM 標註
+
+純模仿只學到 DanLM 自己會走到的局面。模型一旦走偏，進到 DanLM 沒遇過的局面，錯誤就會累積。第 2 版特徵讓驗證一致率從 69.3% 升到 71.1%，對打成績卻沒有變，就是這個現象。
+
+`collect.ts --model` 每場讓一隊（每場輪換）照模型出牌，DanLM 仍然為每一手評分。模型座位的紀錄多一個 `teacher` 欄位，記下 DanLM 自己會出的牌；`export.ts` 遇到 `teacher` 時，以它作為訓練目標。
+
+```bash
+tools/arena/collect-overnight.sh 3 9 ~/danlm-model-v2/model.json ~/danlm-dagger
+```
+
+每行 log 的 `model = DanLM in N%` 是模型在自己走到的局面上與 DanLM 一致的比例，可用來觀察每一輪 DAgger 的進展。
