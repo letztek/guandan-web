@@ -39,3 +39,35 @@ test('features fit in a byte and match the exported scales; PASS leads the list 
   const keys = new Set(options.map(m => actionFeatures(s, m).join()))
   assert.ok(keys.size > 1)
 })
+
+test('play history reads the current trick, the last trick and passes under an opponent', async () => {
+  const { playHistory } = await import('../tools/train/features.ts')
+  const { takeTurn } = await import('../src/match.ts')
+  const { allMoves, beats } = await import('../src/rules.ts')
+  const r = seeded(77)
+  let s = startMatch(shufflePack(r), r)
+  const leader = s.turn
+  const lowest = allMoves(s.hands[leader], s.level).filter(m => m.kind === 'single').sort((a, b) => a.value - b.value)[0]
+  s = takeTurn(s, leader, lowest)
+  const second = s.turn
+  s = takeTurn(s, second, null)
+  // Seen by the third seat: the leader is its partner (2 seats back is relative 2).
+  const third = s.turn
+  let h = playHistory(s, third)
+  const rel = other => (other - third + 4) % 4
+  assert.deepEqual(h.latest[rel(leader)], lowest)
+  assert.equal(h.latest[rel(second)], null)
+  assert.equal(h.latest[0], undefined)
+  assert.equal(h.playsThisTrick, 1)
+  assert.equal(h.lastWinner, -1)
+  // The second seat passed on an opponent's single, so nothing above that value is suggested.
+  assert.equal(h.tally[rel(second)].passedUnder[0], lowest.value)
+  assert.equal(h.tally[rel(leader)].leads, 1)
+  // Everyone else passes: a new trick starts with the leader to lead again.
+  while (s.trick === 1) s = takeTurn(s, s.turn, s.target && s.holder !== s.turn ? null : allMoves(s.hands[s.turn], s.level)[0])
+  h = playHistory(s, s.turn)
+  assert.deepEqual(h.latest, [undefined, undefined, undefined, undefined])
+  assert.equal(h.playsThisTrick, 0)
+  assert.equal(h.lastWinner, (leader - s.turn + 4) % 4)
+  assert.equal(h.lastLead, 'single')
+})

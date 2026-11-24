@@ -25,6 +25,8 @@ class Split:
         meta = json.load(open(os.path.join(path, 'meta.json')))
         self.meta = meta
         n, m, sd, ad = meta['decisions'], meta['actions'], meta['stateDim'], meta['actionDim']
+        if n == 0:
+            raise SystemExit('%s has no decisions; export more games (about 5%% of games go to val)' % path)
         self.states = np.memmap(os.path.join(path, 'states.u8'), np.uint8, 'r', shape=(n, sd))
         self.actions = np.memmap(os.path.join(path, 'actions.u8'), np.uint8, 'r', shape=(m, ad))
         self.q = np.memmap(os.path.join(path, 'q.f32'), np.float32, 'r', shape=(m,))
