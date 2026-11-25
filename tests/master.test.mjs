@@ -82,3 +82,18 @@ test('a build without the model never offers 大師, and a saved 大師 setting 
     assert.deepEqual(readStrengths(), {ally: 'standard', opponents: 'advanced'})
   } finally {delete globalThis.window}
 })
+
+test('the shipped 大師 model loads with this build\'s features and chooses legal plays', async () => {
+  const { existsSync } = await import('node:fs')
+  if (!existsSync('public/model/master.json')) return
+  const { loadModel } = await import('../tools/train/model.ts')
+  // A feature change without a retrained model would throw here instead of silently falling back.
+  const shipped = await loadModel('public/model/master')
+  assert.equal(shipped.json.dtype, 'float16')
+  for (const [seed, plays] of [[3, 0], [11, 17], [29, 41]]) {
+    const s = midHand(seed, plays)
+    const {move} = shipped.choose(publicView(s))
+    assert.ok(move === null ? !!s.target : beats(move, s.target))
+    assert.notEqual(takeTurn(s, s.turn, move), s)
+  }
+})
