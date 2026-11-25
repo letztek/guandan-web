@@ -1,6 +1,7 @@
 """Train the move scorer Q(state, action) on export.ts output.
 
     python tools/train/train.py --data ~/danlm-train --out ~/danlm-model [--epochs 10] [--device mps]
+    python tools/train/train.py --data ~/run1,~/run2 --val ~/run1 --out ~/danlm-model   (several exports)
 
 Loss per decision: mean squared error to DanLM's value for each candidate,
 plus cross-entropy over the candidates (logits Q / tau) towards the play DanLM
@@ -35,8 +36,8 @@ class Split:
         assert len(self.offsets) == n + 1 and len(self.chosen) == n, 'incomplete export'
         self.n = n
 
-    def batch(self, index, device):
-        """Decisions `index` padded to the largest candidate group in the batch."""
+    def arrays(self, index):
+        """Decisions `index` as numpy arrays, padded to the largest candidate group among them."""
         index = np.sort(index)
         start, end = self.offsets[index], self.offsets[index + 1]
         sizes = end - start
@@ -45,10 +46,52 @@ class Split:
         mask = np.arange(k)[None, :] < sizes[:, None]
         rows = np.where(mask, rows, start[:, None])
         flat = rows.reshape(-1)
-        to = lambda a, dtype: torch.from_numpy(np.ascontiguousarray(a)).to(device=device, dtype=dtype)
-        return (to(self.states[index], torch.float32), to(self.actions[flat], torch.float32).view(len(index), k, -1),
-                to(self.q[flat], torch.float32).view(len(index), k), to(mask, torch.bool),
-                to(self.chosen[index], torch.long))
+        return (np.asarray(self.states[index]), np.asarray(self.actions[flat]).reshape(len(index), k, -1),
+                np.asarray(self.q[flat]).reshape(len(index), k), mask, self.chosen[index])
+
+    def batch(self, index, device):
+        return to_device(self.arrays(index), device)
+
+
+def to_device(arrays, device):
+    states, actions, q, mask, chosen = arrays
+    to = lambda a, dtype: torch.from_numpy(np.ascontiguousarray(a)).to(device=device, dtype=dtype)
+    return (to(states, torch.float32), to(actions, torch.float32), to(q, torch.float32),
+            to(mask, torch.bool), to(chosen, torch.long))
+
+
+def pad(a, k, value):
+    extra = k - a.shape[1]
+    if not extra:
+        return a
+    width = [(0, 0), (0, extra)] + [(0, 0)] * (a.ndim - 2)
+    return np.pad(a, width, constant_values=value)
+
+
+class Splits:
+    """Several exports used as one split (e.g. separate collection runs), without copying them."""
+
+    def __init__(self, paths):
+        self.parts = [Split(p) for p in paths]
+        first = self.parts[0].meta
+        for part, path in zip(self.parts, paths):
+            assert part.meta['version'] == first['version'] and part.meta['stateDim'] == first['stateDim'] and \
+                part.meta['actionDim'] == first['actionDim'], '%s was exported with different features' % path
+        self.meta = first
+        self.starts = np.cumsum([0] + [p.n for p in self.parts])
+        self.n = int(self.starts[-1])
+
+    def batch(self, index, device):
+        index = np.asarray(index)
+        part = np.searchsorted(self.starts, index, side='right') - 1
+        chunks = [self.parts[i].arrays(index[part == i] - self.starts[i]) for i in np.unique(part)]
+        k = max(c[1].shape[1] for c in chunks)
+        joined = (np.concatenate([c[0] for c in chunks]),
+                  np.concatenate([pad(c[1], k, 0) for c in chunks]),
+                  np.concatenate([pad(c[2], k, 0) for c in chunks]),
+                  np.concatenate([pad(c[3], k, False) for c in chunks]),
+                  np.concatenate([c[4] for c in chunks]))
+        return to_device(joined, device)
 
 
 class Scorer(nn.Module):
@@ -104,7 +147,8 @@ def export_weights(model, meta, hidden, path):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument('--data', required=True)
+    p.add_argument('--data', required=True, help='export directory, or several separated by commas')
+    p.add_argument('--val', default='', help='directories whose val split to validate on (default: those in --data)')
     p.add_argument('--out', required=True)
     p.add_argument('--epochs', type=int, default=10)
     p.add_argument('--batch', type=int, default=512, help='decisions per step')
@@ -122,7 +166,9 @@ def main():
         device = 'mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu'
     torch.manual_seed(a.seed)
     rng = np.random.default_rng(a.seed)
-    train, val = Split(os.path.join(a.data, 'train')), Split(os.path.join(a.data, 'val'))
+    data = [d for d in a.data.split(',') if d]
+    train = Splits([os.path.join(d, 'train') for d in data])
+    val = Splits([os.path.join(d, 'val') for d in ([d for d in a.val.split(',') if d] or data)])
     meta = train.meta
     assert val.meta['version'] == meta['version'] and val.meta['stateDim'] == meta['stateDim']
     hidden = [int(x) for x in a.hidden.split(',')]
