@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { TeamAdviceInput } from './match'
 import { beginnerSuggestion, quickTeamSuggestion } from './team-coach'
+import { askMaster } from './master-client'
 
 type TeamAdvice = ReturnType<typeof quickTeamSuggestion>
 type Analysis = {input: TeamAdviceInput, advice: TeamAdvice, fallback: boolean}
@@ -31,6 +32,15 @@ export function useTeamAdvice(input: TeamAdviceInput | null) {
       finish(advice, true)
     }
 
+    if (input.master) {
+      // 大師 keeps one worker for the visit; it answers in milliseconds once loaded.
+      timeout = window.setTimeout(fallback, 15000)
+      askMaster(input).then(reply => finish(reply.advice, reply.fallback), fallback)
+      return () => {
+        active = false
+        window.clearTimeout(timeout)
+      }
+    }
     try {
       worker = new Worker(new URL('./team-advice-worker.ts', import.meta.url), {type: 'module'})
       worker.onmessage = (event: MessageEvent<TeamAdvice>) => finish(event.data, false)

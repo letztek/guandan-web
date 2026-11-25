@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Move Model Bench</title>
+  <style>
+    :root { color-scheme: light dark; --bg: #f6f4ef; --fg: #1f1d1a; --muted: #6b665d; --panel: #fffdf8; --line: #ddd6c8; --accent: #7a4b16; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #171614; --fg: #ece8e0; --muted: #a39d92; --panel: #22201d; --line: #3a3631; --accent: #e0a35a; } }
+    body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif; }
+    main { max-width: 760px; margin: 0 auto; padding: 24px 16px; }
+    h1 { font-size: 1.4rem; margin: 0 0 8px; }
+    p { color: var(--muted); margin: 0 0 16px; }
+    button { font: inherit; padding: 10px 18px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: var(--bg); cursor: pointer; }
+    button:disabled { opacity: .5; cursor: wait; }
+    #status { margin: 16px 0 8px; color: var(--fg); font-weight: 600; }
+    pre { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; white-space: pre-wrap; word-break: break-word; font-size: 14px; min-height: 2em; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>大師 move model bench</h1>
+    <p>Plays six hands with the move model in all four seats, through the same worker the game uses, and times every decision. The weights are random but the model has the real size. Copy the result below and send it back.</p>
+    <button id="run" type="button">Run</button>
+    <p id="status" aria-live="polite"></p>
+    <pre id="result"></pre>
+  </main>
+  <script type="module" src="./src/bench.ts"></script>
+</body>
+</html>

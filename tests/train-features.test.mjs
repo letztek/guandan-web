@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { botStep, shufflePack, startMatch } from '../src/match.ts'
-import { ACTION_DIM, ACTION_SCALE, STATE_DIM, STATE_SCALE, actionFeatures, candidates, stateFeatures } from '../tools/train/features.ts'
+import { ACTION_DIM, ACTION_SCALE, STATE_DIM, STATE_SCALE, actionFeatures, candidates, stateFeatures } from '../src/model-features.ts'
 
 function seeded(seed) {
   return () => ((seed = (1664525 * seed + 1013904223) >>> 0) / 4294967296)

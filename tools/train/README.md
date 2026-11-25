@@ -63,3 +63,36 @@ tools/arena/collect-overnight.sh 3 9 ~/danlm-model-v2/model.json ~/danlm-dagger
 ```
 
 每行 log 的 `model = DanLM in N%` 是模型在自己走到的局面上與 DanLM 一致的比例，可用來觀察每一輪 DAgger 的進展。
+
+## 放進遊戲（大師難度）
+
+遊戲裡的「大師」難度用 `src/master.ts`：模型選牌，理由由規則判斷事後補上（和規則判斷選同一手時沿用它的理由）。模型在專用的 Web Worker（`src/master-worker.ts`）裡載入一次，之後每一手只需幾毫秒。載入失敗時改用進階牌手。
+
+```bash
+node --disable-warning=ExperimentalWarning --experimental-strip-types tools/train/pack.ts ~/danlm-model-v3b/model.json public/model/master
+```
+
+- 產生 `public/model/master.json` 與 `master.bin`（float16，約 1.3 MB）。
+- 只有 `public/model/master.json` 存在時，建置出來的遊戲才會在設定裡提供「大師」。沒有模型的建置看不到這個選項；先前存過「大師」的設定會改用進階。
+- 這個模型以 DanLM 的資料訓練，所以 `public/model/NOTICE.md` 和 `LICENSE-DanLM.txt`（DanLM 授權全文）要跟著一起上線。
+
+## 裝置測速（`bench.html`）
+
+`bench.html` 不在遊戲裡連結，直接開網址使用。它讓大師在四個座位打 6 副固定的牌，經由跟遊戲相同的 worker，量出模型載入時間與每一手的時間，並和 Node 算出的結果逐手比對。
+
+- 用的是同尺寸的隨機權重（`public/model/bench.*`），所以真模型上線前也能先測手機速度。
+- 重新產生測試模型和比對答案：
+
+```bash
+node --disable-warning=ExperimentalWarning --experimental-strip-types tools/train/random-model.ts 512,512,256 /tmp/bench32
+```
+
+```bash
+node --disable-warning=ExperimentalWarning --experimental-strip-types tools/train/pack.ts /tmp/bench32.json public/model/bench
+```
+
+```bash
+node --disable-warning=ExperimentalWarning --experimental-strip-types tools/train/bench-fixture.ts public/model/bench
+```
+
+- 改動特徵、模型或這三個檔案後，都要重新產生 `bench-expected.json`，否則頁面會顯示 MISMATCH。
