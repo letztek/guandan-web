@@ -166,9 +166,12 @@ def main():
         device = 'mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu'
     torch.manual_seed(a.seed)
     rng = np.random.default_rng(a.seed)
-    data = [d for d in a.data.split(',') if d]
+    # The shell expands only a leading ~, not one after a comma, so expand them here.
+    paths = lambda text: [os.path.expanduser(d) for d in text.split(',') if d]
+    data = paths(a.data)
     train = Splits([os.path.join(d, 'train') for d in data])
-    val = Splits([os.path.join(d, 'val') for d in ([d for d in a.val.split(',') if d] or data)])
+    val = Splits([os.path.join(d, 'val') for d in (paths(a.val) or data)])
+    a.out = os.path.expanduser(a.out)
     meta = train.meta
     assert val.meta['version'] == meta['version'] and val.meta['stateDim'] == meta['stateDim']
     hidden = [int(x) for x in a.hidden.split(',')]
