@@ -3,7 +3,7 @@ import { assetPath } from './assets'
 import type { LocalGame } from './local-game'
 import { partners } from './partner-roster'
 import { GameVersion, Icon, Modal, PlayingCard } from './ui'
-import { difficultyNames, type Difficulty, type BotSide, type BotStrengths } from './difficulty'
+import { difficultyNames, offeredDifficulties, type Difficulty, type BotSide, type BotStrengths } from './difficulty'
 import { getLanguage, languages, localizedName, setLanguage, translate as t, type Language } from './i18n'
 import './home.css'
 
@@ -96,6 +96,9 @@ function strengthDescription(difficulty: Difficulty) {
     case 'advanced': return t('每次出牌前，依公開的牌推想其他三家可能的手牌，把幾種出法各自打到本副結束，有明顯較好的才改變打法。也會參考各家之前的領牌和過牌。',
       'Before each play, imagines what the other three hands could hold from the public cards, plays several options through to the end of the deal, and changes course only for a clearly better one. Also weighs past leads and passes.',
       '毎回、公開された札から他の3人の手札を推測し、いくつかの出し方を局の最後まで試算して、明らかに有利な手があるときだけ打ち方を変えます。各席の過去の先手やパスも参考にします。')
+    case 'master': return t('由學習過大量強手對局的模型出牌，依手牌、各家餘張和整副出牌紀錄評估每一種出法。打法固定，不隨角色牌風改變；出牌理由由規則判斷補充。',
+      'Plays with a model trained on a large number of strong games, weighing every option from its hand, the hand sizes and the whole play record. Its style is fixed regardless of character; explanations come from the rule-based player.',
+      '強い対局を大量に学んだモデルが、手札、各席の残り枚数、この局の出札の記録からすべての出し方を評価します。打ち方はキャラクターに関係なく一定で、理由の説明はルール判断が補います。')
   }
 }
 
@@ -104,6 +107,7 @@ function strengthName(difficulty: Difficulty) {
     case 'beginner': return t(difficultyNames.beginner,'Beginner','初級')
     case 'standard': return t(difficultyNames.standard,'Standard','標準')
     case 'advanced': return t(difficultyNames.advanced,'Advanced','上級')
+    case 'master': return t(difficultyNames.master,'Master','マスター')
   }
 }
 export function Settings({music,volume,autoPass,strengths,onStrength,onMusic,onVolume,onAutoPass,onClose}: {
@@ -121,7 +125,7 @@ export function Settings({music,volume,autoPass,strengths,onStrength,onMusic,onV
         return <label key={side} className="room-setting strength-setting">
           <span><strong>{label}</strong><small>{strengthDescription(strengths[side])}</small></span>
           <select aria-label={label} value={strengths[side]} onChange={event=>onStrength(side,event.target.value as Difficulty)}>
-            {(Object.keys(difficultyNames) as Difficulty[]).map(value=><option key={value} value={value}>{strengthName(value)}</option>)}
+            {offeredDifficulties().map(value=><option key={value} value={value}>{strengthName(value)}</option>)}
           </select>
         </label>
       })}

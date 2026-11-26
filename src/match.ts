@@ -183,12 +183,29 @@ export function publicTable(s: Match,seat=s.turn,withHistory=false): PublicTable
   return {seat, counts:s.hands.map(h=>h.length), holder:s.holder, pending:[...s.pending], finish:[...s.finish],
     shown, played, ...(withHistory ? {history:publicSeatHistory(s.events,s.trick)} : {})}
 }
+// A public declaration needs its kind, comparison value and number of cards.
+// Give visible faces local IDs so another seat's physical copies stay private.
+function faces(cards: Card[], prefix: string) {
+  return cards.map(({suit,rank},i)=>({suit,rank,id:prefix+i}))
+}
+// The match as one seat sees it: its own hand, hand sizes for the others, and
+// the public record. Hidden cards become placeholders that carry no face.
+export function publicView(s: Match, seat=s.turn): Match {
+  const hidden=(owner: number, count: number)=>Array.from({length:count},(_,i)=>({suit:'?',rank:'?',id:'hidden-'+owner+'-'+i}))
+  const events=s.events.map((e,n)=>({...e,
+    ...(e.move ? {move:{...e.move,as:{},cards:faces(e.move.cards,'event-'+n+'-')}} : {}),
+    ...(e.reveal ? {reveal:{...e.reveal,card:{...faces([e.reveal.card],'reveal-'+n+'-')[0]}}} : {})}))
+  return {...s,hands:s.hands.map((h,i)=>i===seat ? h : hidden(i,h.length)),events,exchange:null,
+    target:s.target && {...s.target,as:{},cards:faces(s.target.cards,'table-')}}
+}
 export function adviceInput(s: Match, strength: Difficulty='standard', style?: PlayStyle) {
-  // A public declaration needs its kind, comparison value and number of cards.
-  // Give visible faces local IDs so another seat's physical copies stay private.
-  const target=s.target && {...s.target,as:{},cards:s.target.cards.map(({suit,rank},i)=>({suit,rank,id:'table-'+i}))}
-  return {hand:s.hands[s.turn],level:s.level,target,table:publicTable(s,s.turn,strength==='advanced'),
-    ...(strength==='standard' ? {} : {strength}),...(style ? {style} : {})}
+  const target=s.target && {...s.target,as:{},cards:faces(s.target.cards,'table-')}
+  // 大師's model runs in its own worker; the rules side, used for its
+  // explanations and as its fallback, is the advanced player.
+  const rules: Difficulty=strength==='master' ? 'advanced' : strength
+  return {hand:s.hands[s.turn],level:s.level,target,table:publicTable(s,s.turn,rules==='advanced'),
+    ...(rules==='standard' ? {} : {strength:rules}),...(style ? {style} : {}),
+    ...(strength==='master' ? {master:publicView(s)} : {})}
 }
 export type TeamAdviceInput = ReturnType<typeof adviceInput>
 export function adviseTurn(s: Match, strength: Difficulty='standard', style?: PlayStyle) {

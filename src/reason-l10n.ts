@@ -17,6 +17,22 @@ export function translateReason(text: string, language: Exclude<Language, 'zh-Ha
 }
 
 const dynamic: Array<readonly [RegExp, string, string]> = [
+  [/大師選擇用(.+?)壓過隊友，改由自己掌握下一圈，出完剩 (\d+) 張。/g,
+    'The master overtakes your partner with $1 to lead the next trick itself, leaving $2 cards. ',
+    'マスターは$1でペアを上回り、次のトリックを自分で主導します。残りは$2枚です。'],
+  [/大師判斷這時用(.+?)奪回牌權較有利，出完剩 (\d+) 張。/g,
+    'The master judges it better to take back the lead now with $1, leaving $2 cards. ',
+    'マスターは今$1で先手を取り返すのが有利と判断しました。残りは$2枚です。'],
+  [/大師判斷這時用(.+?)領出較有利，出完剩 (\d+) 張。/g,
+    'The master judges it better to lead $1 now, leaving $2 cards. ',
+    'マスターは今$1を出すのが有利と判断しました。残りは$2枚です。'],
+  [/大師選擇用(.+?)壓牌，出完剩 (\d+) 張。/g,
+    'The master beats the table with $1, leaving $2 cards. ',
+    'マスターは$1で場の札を上回ります。残りは$2枚です。'],
+  [/大師選擇領出(.+?)，出完剩 (\d+) 張。/g,
+    'The master leads $1, leaving $2 cards. ',
+    'マスターは$1を出します。残りは$2枚です。'],
+  [/其次考慮的是「(.+?)」。/g, 'Its next choice was $1. ', '次の候補は「$1」でした。'],
   [/推演 (\d+) 種可能的牌局到本副結束，選擇「(.+?)」而不是「(.+?)」：/g,
     'Across $1 possible deals played to the end, $2 beats $3: ',
     '考えられる$1通りの配り方を最後まで試算すると、「$2」は「$3」より有利です。'],
@@ -179,6 +195,10 @@ const reasons: Record<string, readonly [string, string]> = {
   '比較後續幾圈，這樣較少讓對手把餘牌整理成最後一手。': [
     'Over the next few tricks, this makes it harder for the opponent to set up a final play. ', '数トリック先を比べると、相手が最後の一手を整えにくくなります。'],
   '這手可以出完。': ['This play goes out. ', 'この手で上がれます。'],
+  '隊友目前最大，大師選擇過牌，讓隊友繼續。': [
+    'Your partner is winning, so the master passes and lets them keep the trick. ', 'ペアが勝っているので、マスターはパスしてペアに任せます。'],
+  '大師評估後選擇過牌，保留手牌等下一次接手。': [
+    'The master passes and keeps its cards for the next chance to take the lead. ', 'マスターはパスして手札を温存し、次に先手を取る機会を待ちます。'],
   '沒有能跟的牌，這手過牌。': ['You have no legal follow. Pass. ', '続けられる札がないため、パスします。'],
   '先出這組牌，保留手上的大牌。': ['Play this combination and save your high cards. ', 'この役を出して、手札の強い札を温存します。'],
 }
