@@ -104,6 +104,7 @@
 .play-table .hint-toggle[aria-expanded=true] {background: #e5cd9e;color: #1e3828;border-color: #e5cd9e}
 .play-table .hint-toggle:disabled {opacity: .55}
 .table-menu {display: grid;gap: 6px;padding: 14px 18px 18px}
+.table-menu + .history {display:flex;align-items:baseline;gap:12px}
 .history .public-jokers {
   display: flex;flex-wrap: wrap;gap: 4px 12px;
   margin: 0 0 7px;padding: 6px 9px;border-radius: 6px;background: #e9e0cc;

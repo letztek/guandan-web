@@ -11,7 +11,7 @@ import { useTeamAdvice } from './use-team-advice'
 import { difficultyForSeat, type BotStrengths } from './difficulty'
 import { autoPass, automaticPassText, canAutoPass } from './auto-pass'
 import { allMoves, beats, power, uid, type Card, type Move } from './rules'
-import { Icon, Modal, PlayingCard } from './ui'
+import { GameVersion, Icon, Modal, PlayingCard } from './ui'
 import { localGameKey, readLocalGame, updateLocalGame, type LocalGame } from './local-game'
 import { translate as t, useLanguage } from './i18n'
 import { actionName, adviceReason, cardCount, describeCards, displayName, handNumber, localizeGameEvent, localizeSelectionHint, moveLabel, moveName, placeName, rankName, trickNumber } from './match-l10n'
@@ -332,7 +332,10 @@ export function Battle({initialSave,autoPassEnabled,strengths,onMusicScene,onCho
       <button onClick={()=>setModal('cards')}><Icon name="cards"/>{t('Q 版牌樣','Card gallery','カード一覧')}</button>
       <button onClick={()=>setModal('rules')}><Icon name="book"/>{t('本桌規則','Table rules','この卓のルール')}</button>
       <button onClick={()=>setModal('restart')}><Icon name="shuffle"/>{t('開新場','New match','新しいマッチ')}</button>
-    </div><p className="history">{save.storage==='device'?t('本局已自動存到這台裝置，可關閉分頁後再繼續。','This match is saved on this device and can be resumed after closing the tab.','このマッチは端末に自動保存され、タブを閉じても再開できます。'):save.storage==='tab'?t('目前進度只存在本分頁。','Progress is saved only in this tab.','進行状況はこのタブにのみ保存されます。'):t('目前進度只保留到頁面關閉或重新載入。','Progress will be lost if you close or reload the page.','ページを閉じるか再読み込みすると進行状況が失われます。')}</p></Modal>}
+    </div><p className="history">
+      {save.storage==='device'?t('本局已自動存到這台裝置，可關閉分頁後再繼續。','This match is saved on this device and can be resumed after closing the tab.','このマッチは端末に自動保存され、タブを閉じても再開できます。'):save.storage==='tab'?t('目前進度只存在本分頁。','Progress is saved only in this tab.','進行状況はこのタブにのみ保存されます。'):t('目前進度只保留到頁面關閉或重新載入。','Progress will be lost if you close or reload the page.','ページを閉じるか再読み込みすると進行状況が失われます。')}
+      <GameVersion/>
+    </p></Modal>}
     {conflict&&<Modal title={t('其他分頁已更新存檔','Another tab updated the save','別のタブでセーブが更新されました')} onClose={onHome}><div className="history"><p>{t('牌桌已暫停。你可以載入最新進度，或回主選單。','The match is paused. Load the latest progress or return to the menu.','マッチを一時停止しました。最新の進行状況を読み込むか、メニューへ戻ってください。')}</p></div><footer><button className="btn border" onClick={onHome}>{t('回主選單','Return to menu','メニューへ戻る')}</button><button className="btn gold" onClick={reloadSave}>{t('載入最新進度','Load latest progress','最新の進行状況を読み込む')}</button></footer></Modal>}
     {modal==='cards'&&!arriving&&<Modal title={t('Q 版牌樣','Card gallery','カード一覧')} wide onClose={()=>{setModal('');if(location.hash==='#cards')history.replaceState(null,'','#battle')}}><DeckProof/></Modal>}
     {modal==='rules'&&<Modal title={t('本桌摜蛋規則','Guandan table rules','この卓の摜蛋ルール')} onClose={()=>setModal('')}><div className="manual">
