@@ -13,6 +13,8 @@
 //   offsets.i32 [N + 1]           decision i owns actions offsets[i] .. offsets[i+1]
 //   chosen.i32  [N]               index within the group of the play DanLM made (or would have
 //                                 made, at a model seat in --model data)
+//   outcome.f32 [N]               how the hand ended for the mover's team: +levels it gained when
+//                                 its side went out first, otherwise minus the levels the other side gained
 //   meta.json                     sizes, feature version and scales
 import { closeSync, mkdirSync, openSync, writeFileSync, writeSync } from 'node:fs'
 import { join } from 'node:path'
@@ -36,11 +38,11 @@ class Split {
   constructor(name: string) {
     this.dir = join(out, name)
     mkdirSync(this.dir, {recursive: true})
-    this.fds = Object.fromEntries(['states.u8', 'actions.u8', 'q.f32', 'offsets.i32', 'chosen.i32']
+    this.fds = Object.fromEntries(['states.u8', 'actions.u8', 'q.f32', 'offsets.i32', 'chosen.i32', 'outcome.f32']
       .map(file => [file, openSync(join(this.dir, file), 'w')]))
     writeSync(this.fds['offsets.i32'], new Uint8Array(Int32Array.of(0).buffer))
   }
-  add(state: Uint8Array, actions: Uint8Array[], q: number[], chosen: number) {
+  add(state: Uint8Array, actions: Uint8Array[], q: number[], chosen: number, outcome: number) {
     writeSync(this.fds['states.u8'], state)
     const flat = new Uint8Array(actions.length * ACTION_DIM)
     actions.forEach((a, i) => flat.set(a, i * ACTION_DIM))
@@ -50,6 +52,7 @@ class Split {
     this.n++
     writeSync(this.fds['offsets.i32'], new Uint8Array(Int32Array.of(this.m).buffer))
     writeSync(this.fds['chosen.i32'], new Uint8Array(Int32Array.of(chosen).buffer))
+    writeSync(this.fds['outcome.f32'], new Uint8Array(Float32Array.of(outcome).buffer))
   }
   close() {
     for (const fd of Object.values(this.fds)) closeSync(fd)
@@ -78,7 +81,8 @@ function divergedBeforeFix(record: HandRecord & {bridge?: number}) {
   return record.moves.some(m => m.kind && runKinds.includes(m.kind) && m.cards.includes(wildCode))
 }
 // move: the play DanLM chose here (for --model data, the recorded teacher, not the model's move).
-function decision(split: Split, s: Match, move: Move | null, q: [string, string, string, number][]) {
+// outcome: how the hand actually ended for the mover's team (+levels gained, or minus the opponents' gain).
+function decision(split: Split, s: Match, move: Move | null, q: [string, string, string, number][], outcome: number) {
   const groups = new Map<string, {features: Uint8Array, value: number}>()
   for (const [type, rank, cardText, value] of q) {
     const cards = cardText.match(/../g) ?? []
@@ -97,7 +101,7 @@ function decision(split: Split, s: Match, move: Move | null, q: [string, string,
   const keys = [...groups.keys()]
   const chosen = keys.indexOf(chosenKey)
   if (chosen < 0) {stats.chosenMissing++; return}
-  split.add(stateFeatures(s), keys.map(k => groups.get(k)!.features), keys.map(k => groups.get(k)!.value), chosen)
+  split.add(stateFeatures(s), keys.map(k => groups.get(k)!.features), keys.map(k => groups.get(k)!.value), chosen, outcome)
   stats.decisions++
 }
 
@@ -119,7 +123,7 @@ for (const file of files) {
             return
           }
         }
-        decision(split, s, chosen, q)
+        decision(split, s, chosen, q, (record.order[0] % 2 === s.turn % 2 ? 1 : -1) * record.gain)
       })
       stats.hands++
     } catch (error) {

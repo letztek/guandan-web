@@ -97,3 +97,24 @@ test('the shipped 大師 model loads with this build\'s features and chooses leg
     assert.notEqual(takeTurn(s, s.turn, move), s)
   }
 })
+
+test('a value head judges positions from one seat\'s view, and the search can end on it', async () => {
+  const { searchMove } = await import('../src/master-search.ts')
+  const { publicTable } = await import('../src/match.ts')
+  const withValue = randomModel([16, 8], 9, [8])
+  const valued = new MoveScorer(withValue.json, withValue.weights)
+  assert.ok(valued.hasValue)
+  assert.ok(!scorer.hasValue)
+  assert.throws(() => scorer.value(stateFeatures(midHand(3, 0))))
+  for (const [seed, plays] of [[3, 0], [11, 17], [29, 41]]) {
+    const s = midHand(seed, plays)
+    const v = valued.stateValue(s)
+    assert.ok(Number.isFinite(v))
+    // The value reads only what the seat can see.
+    assert.equal(valued.stateValue(publicView(s)), v)
+    const result = searchMove(publicView(s), publicTable(s, s.turn, true), valued,
+      {candidates: 3, horizon: 1, worlds: 3, budgetMs: Infinity, gap: Infinity, leaf: 'value'})
+    assert.ok(result.move === null ? !!s.target : beats(result.move, s.target))
+    if (result.searched) assert.ok(result.lines.every(line => line.values.length === result.worlds && line.values.every(Number.isFinite)))
+  }
+})

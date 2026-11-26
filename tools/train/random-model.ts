@@ -8,7 +8,7 @@ import { dirname } from 'node:path'
 import { ACTION_DIM, ACTION_SCALE, FEATURE_VERSION, STATE_DIM, STATE_SCALE } from '../../src/model-features.ts'
 import type { ModelJson } from '../../src/move-scorer.ts'
 
-export function randomModel(hidden: number[], seed = 1): {json: ModelJson, weights: Float32Array} {
+export function randomModel(hidden: number[], seed = 1, valueHidden?: number[]): {json: ModelJson, weights: Float32Array} {
   let state = seed >>> 0
   const uniform = () => ((state = (1664525 * state + 1013904223) >>> 0) / 4294967296) * 2 - 1
   const tensors: ModelJson['tensors'] = [], parts: Float32Array[] = []
@@ -28,11 +28,18 @@ export function randomModel(hidden: number[], seed = 1): {json: ModelJson, weigh
     add(`body.${i}.weight`, [sizes[i + 1], sizes[i]], Math.sqrt(6 / sizes[i]))
     add(`body.${i}.bias`, [sizes[i + 1]], 0.1)
   }
+  if (valueHidden) {
+    const vs = [hidden[0], ...valueHidden, 1]
+    for (let i = 0; i + 1 < vs.length; i++) {
+      add(`value.${i}.weight`, [vs[i + 1], vs[i]], Math.sqrt(6 / vs[i]))
+      add(`value.${i}.bias`, [vs[i + 1]], 0.1)
+    }
+  }
   const weights = new Float32Array(offset)
   let at = 0
   for (const p of parts) {weights.set(p, at); at += p.length}
   return {json: {featureVersion: FEATURE_VERSION, stateDim: STATE_DIM, actionDim: ACTION_DIM,
-    stateScale: STATE_SCALE, actionScale: ACTION_SCALE, hidden, tensors}, weights}
+    stateScale: STATE_SCALE, actionScale: ACTION_SCALE, hidden, tensors, ...(valueHidden ? {valueHidden} : {})}, weights}
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

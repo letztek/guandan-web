@@ -7,7 +7,8 @@ import { ACTION_DIM, FEATURE_VERSION, STATE_DIM, actionFeatures, candidates, sta
 
 type TensorInfo = {name: string, shape: number[], offset: number}
 export type ModelJson = {featureVersion: number, stateDim: number, actionDim: number,
-  stateScale: number[], actionScale: number[], hidden: number[], tensors: TensorInfo[], dtype?: 'float32' | 'float16'}
+  stateScale: number[], actionScale: number[], hidden: number[], tensors: TensorInfo[], dtype?: 'float32' | 'float16',
+  valueHidden?: number[]}
 
 // IEEE 754 half precision to single precision.
 function halfToFloat(h: number) {
@@ -109,6 +110,27 @@ export class MoveScorer {
     }
     return h
   }
+
+  // Whether the model also judges positions (a value head, from train_value.py).
+  get hasValue() { return !!this.json.valueHidden && 'value.0.weight' in this.tensors }
+
+  // V: how many levels the seat this state is seen from should expect its team to
+  // win (+) or lose (-) this hand. Reads the move scorer's first state layer.
+  value(state: Uint8Array): number {
+    if (!this.hasValue) throw new Error('this model has no value head')
+    const s = Float32Array.from(state, (v, i) => v * this.json.stateScale[i])
+    let h = this.affine('state_in.weight', s, 'state_in.bias')
+    for (let i = 0; i < h.length; i++) h[i] = Math.max(0, h[i])
+    const layers = this.json.valueHidden!.length + 1
+    for (let layer = 0; layer < layers; layer++) {
+      h = this.affine(`value.${layer}.weight`, h, `value.${layer}.bias`)
+      if (layer < layers - 1) for (let i = 0; i < h.length; i++) h[i] = Math.max(0, h[i])
+    }
+    return h[0]
+  }
+
+  // V for the seat to move in `s` (or another seat's own view of it).
+  stateValue(s: Match, seat = s.turn) { return this.value(stateFeatures(s, seat)) }
 
   // The best-scored legal play for the seat to move, with every candidate's value.
   choose(s: Match): {move: Move | null, values: {move: Move | null, q: number}[]} {

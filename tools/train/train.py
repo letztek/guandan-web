@@ -35,6 +35,10 @@ class Split:
         self.chosen = np.fromfile(os.path.join(path, 'chosen.i32'), np.int32)
         assert len(self.offsets) == n + 1 and len(self.chosen) == n, 'incomplete export'
         self.n = n
+        # How each hand ended for the mover's team; exports from before the value head lack it.
+        outcome = os.path.join(path, 'outcome.f32')
+        self.outcome = np.fromfile(outcome, np.float32) if os.path.exists(outcome) else None
+        assert self.outcome is None or len(self.outcome) == n, 'incomplete export'
 
     def arrays(self, index):
         """Decisions `index` as numpy arrays, padded to the largest candidate group among them."""
@@ -125,8 +129,9 @@ def losses(model, batch, tau):
     return mse, ce, agree
 
 
-def export_weights(model, meta, hidden, path):
-    """model.json describes the layers; model.bin holds float32 weights in that order."""
+def export_weights(model, meta, hidden, path, value=None):
+    """model.json describes the layers; model.bin holds float32 weights in that order.
+    value: an optional ValueHead, saved as value.N.* tensors after the move scorer's."""
     tensors, layers = [], []
     def add(name, t):
         t = t.detach().cpu().float().contiguous()
@@ -139,10 +144,16 @@ def export_weights(model, meta, hidden, path):
     for i, lin in enumerate(linears):
         add('body.%d.weight' % i, lin.weight)
         add('body.%d.bias' % i, lin.bias)
+    extra = {}
+    if value is not None:
+        for i, lin in enumerate(m for m in value.body if isinstance(m, nn.Linear)):
+            add('value.%d.weight' % i, lin.weight)
+            add('value.%d.bias' % i, lin.bias)
+        extra = {'valueHidden': value.hidden}
     np.concatenate([t.numpy().reshape(-1) for t in tensors]).astype('<f4').tofile(path + '.bin')
     json.dump({'featureVersion': meta['version'], 'stateDim': meta['stateDim'], 'actionDim': meta['actionDim'],
                'stateScale': meta['stateScale'], 'actionScale': meta['actionScale'], 'hidden': hidden,
-               'tensors': layers}, open(path + '.json', 'w'), indent=1)
+               'tensors': layers, **extra}, open(path + '.json', 'w'), indent=1)
 
 
 def main():

@@ -16,6 +16,7 @@ export function parseArgs(argv: string[]) {
 // --model <path to model.json>: a trained move scorer plays our seats.
 // --search candidates,horizon,worlds[,z[,maxCards]]: the model plus look-ahead (src/master-search.ts),
 // with a fixed number of guessed worlds and no time limit, so runs are repeatable.
+// --leaf value: judge the look-ahead's end with the value head instead of our side's next Q.
 export const searchStats = {decisions: 0, searched: 0, changed: 0, ms: 0, maxMs: 0}
 export async function policyFromArgs(args: Record<string, string | undefined>): Promise<Policy | undefined> {
   if (!args.model) return undefined
@@ -25,7 +26,9 @@ export async function policyFromArgs(args: Record<string, string | undefined>): 
   const {searchMove} = await import('../../src/master-search.ts')
   const {publicTable, publicView} = await import('../../src/match.ts')
   const [candidates, horizon, worlds, z, maxCards] = args.search.split(',').map(Number)
-  const options = {candidates, horizon, worlds, budgetMs: Infinity, ...(Number.isFinite(z) ? {z} : {}),
+  const leaf = args.leaf === 'value' ? 'value' as const : 'q' as const
+  if (leaf === 'value' && !scorer.hasValue) throw new Error('--leaf value needs a model with a value head (train_value.py)')
+  const options = {candidates, horizon, worlds, budgetMs: Infinity, leaf, ...(Number.isFinite(z) ? {z} : {}),
     ...(Number.isFinite(maxCards) ? {maxCards} : {})}
   return s => {
     const result = searchMove(publicView(s), publicTable(s, s.turn, true), scorer, options)

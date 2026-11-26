@@ -114,3 +114,25 @@ node --disable-warning=ExperimentalWarning --experimental-strip-types tools/trai
 若要再試，需要先有一個跨座位一致的局面價值：例如用已收集資料中每副的實際結局，訓練一個 V(局面) 輸出，作為推演終點的評估。
 
 這次實驗的副產品：`src/move-scorer.ts` 每列權重一次算 4 個候選，推論快 1.8 倍，輸出逐位元相同。
+
+## 局勢分（value head）
+
+讓模型除了「這一手每種出法各幾分」，再回答「從這個座位看，我方這副最後會贏或輸幾級」。
+
+- 答案取自每副的真實結局：`export.ts` 為每個決策寫出 `outcome.f32`，從出牌那一隊的角度算，頭游在我方就是 +升級數，否則是 −對方升級數。四個座位用同一種算法，所以分數是同一把尺。
+- 只用 DanLM 對 DanLM 的資料。DAgger 資料裡有一隊是模型，結局不代表雙方都打到 DanLM 的水準。
+- `train_value.py` 凍結既有的出牌模型，只在它第一層的局面特徵上訓練一個小頭（512 → 256 → 1）。出牌選擇與原模型逐位元相同；輸出的 `model.json` 多了 `valueHidden` 與 `value.N.*` 張量。
+- `value-check.ts` 檢查兩件事：同一把尺（相鄰兩個對手決策的分數應一正一負），以及比亂猜準（跟真實結局比，對照一律猜平均）。
+- 搜尋可改用局勢分評估推演終點：`src/master-search.ts` 的 `leaf: 'value'`，arena 的 `--leaf value`。
+
+```bash
+node --disable-warning=ExperimentalWarning --experimental-strip-types tools/train/export.ts --out ~/danlm-train-value-a2 ~/danlm-data/*-20261124T*.jsonl.gz
+```
+
+```bash
+~/danlm-venv/bin/python tools/train/train_value.py --model ~/danlm-model-v4/model.pt --data ~/danlm-train-value-v2,~/danlm-train-value-a2 --out ~/danlm-model-v4v
+```
+
+```bash
+node --disable-warning=ExperimentalWarning --experimental-strip-types tools/train/value-check.ts ~/danlm-model-v4v/model.json ~/danlm-data/*-2026112[34]T*.jsonl.gz
+```
