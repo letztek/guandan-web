@@ -10,7 +10,7 @@ import { cardCode } from './njupt.ts'
 export type HandRecord = {game: string, hand: number, level: string, scores: [string, string], owner: number,
   dealt: string[][], resisted: boolean, exchange: [number, number, string, string][], first: number,
   moves: {seat: number, cards: string[], kind?: string, value?: number, label?: string, q?: [string, string, string, number][],
-    teacher?: {cards: string[], rank: string | null, flush?: boolean}}[],
+    teacher?: {cards: string[], rank: string | null, type?: string, flush?: boolean}}[],
   order: number[], gain: number, won: boolean}
 
 export function readRecords(file: string): HandRecord[] {

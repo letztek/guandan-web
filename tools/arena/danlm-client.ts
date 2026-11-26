@@ -14,8 +14,16 @@ export function danlmRank(move: Move, level: string) {
   const length = runLength[move.kind]
   return length ? rankCode(['A', ...ranks][move.value + length - 1]) : declaredRank(move, level)
 }
+// DanLM's play types (danzero.engine.actions) for this game's kinds. The rank alone
+// is not enough: two wild cards let the same cards be a 5-card bomb or a full house
+// (S4 C4 D4 H5 H5 at level 5), or two triples or three pairs (C4 H4 C5 S5 H5 H5),
+// with the same rank either way.
+const danlmTypes: Record<string, string> = {single: 'single', pair: 'double', triple: 'triple', full: 'fullhouse',
+  straight: 'straight', pairs: 'tube', steel: 'plate', bomb: 'normalbomb', flush: 'flushbomb', kings: 'jokerbomb'}
+export const danlmType = (move: Move) => danlmTypes[move.kind]
 // Bumped when the bridge changes in a way that affects collected data.
-export const BRIDGE_VERSION = 2
+// 3: plays cross the bridge with their type, not just rank and the straight-flush flag.
+export const BRIDGE_VERSION = 3
 
 export type HostOptions = {python?: string, danlm?: string, agent?: string, mock?: boolean}
 
@@ -41,9 +49,17 @@ export class DanlmHost {
   close() { this.proc.stdin.end(); this.proc.kill() }
 }
 
-// DanLM names physical cards, a declared rank and whether it is a straight flush;
-// find this game's declaration of the same cards. guessed: none matched (wild cards).
-export function danlmMove(s: Match, seat: number, cards: string[], rank: string | null, flush?: boolean): {move: Move | null, guessed: boolean} {
+// A play as DanLM names it: physical cards, declared rank and play type. Data from
+// before bridge version 3 has no type, only whether the play is a straight flush.
+export type DanlmPlay = {cards: string[], rank: string | null, type?: string | null, flush?: boolean}
+
+// Four kings are one play whatever rank DanLM's encoding carries for them.
+const rankMatches = (move: Move, level: string, rank: string | null) => move.kind === 'kings' || danlmRank(move, level) === rank
+
+// Find this game's declaration of the cards DanLM played. guessed: none has DanLM's
+// type and rank, so the two engines may read the play differently.
+export function danlmMove(s: Match, seat: number, play: DanlmPlay): {move: Move | null, guessed: boolean} {
+  const {cards, rank, type, flush} = play
   if (!cards.length) {
     if (!s.target) throw new Error('DanLM passed on a lead')
     return {move: null, guessed: false}
@@ -52,11 +68,21 @@ export function danlmMove(s: Match, seat: number, cards: string[], rank: string 
   const picked = cards.map(code => {
     const index = pool.findIndex(c => cardCode(c) === code)
     return index < 0 ? undefined : pool.splice(index, 1)[0]
-  })
+  }) as Move['cards']
   if (!picked.every(Boolean)) throw new Error(`DanLM played ${cards.join(' ')}, which is not in this seat's hand`)
-  const declared = allMoves(picked as Move['cards'], s.level, true).filter(m => beats(m, s.target))
-    .find(m => danlmRank(m, s.level) === rank && (flush === undefined || (m.kind === 'flush') === flush))
-  const move = declared ?? interpret(picked as Move['cards'], s.level, s.target)
+  const sameType = allMoves(picked, s.level, true).filter(m => beats(m, s.target) &&
+    (type ? danlmType(m) === type : flush === undefined || (m.kind === 'flush') === flush))
+  // Declarations with the same type and rank differ only in what a full house's
+  // wild pair stands for; prefer the one that keeps wild cards as themselves.
+  const declared = sameType.filter(m => rankMatches(m, s.level, rank))
+    .sort((a, b) => Object.keys(a.as).length - Object.keys(b.as).length)[0]
+  const move = declared ?? (type ? sameType[0] : undefined) ?? interpret(picked, s.level, s.target)
   if (!move) throw new Error(`DanLM played ${cards.join(' ')}, which this game does not allow here`)
   return {move, guessed: !declared}
+}
+
+// The step message that tells DanLM's shadow engine which play was made.
+export function danlmStep(seat: number, move: Move | null, level: string) {
+  return {op: 'step', seat, cards: move ? move.cards.map(cardCode) : [],
+    rank: move ? danlmRank(move, level) : null, type: move ? danlmType(move) : null}
 }

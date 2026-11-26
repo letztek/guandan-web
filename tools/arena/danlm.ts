@@ -9,8 +9,8 @@ import { appendFileSync } from 'node:fs'
 import { botStep, partner, shufflePack, startMatch, takeTurn, teamOf, type Match } from '../../src/match.ts'
 import { allMoves, beats, ranks, type Move } from '../../src/rules.ts'
 import type { Difficulty } from '../../src/difficulty.ts'
-import { declaredRank, handCodes, rankCode, toAction, cardCode } from './njupt.ts'
-import { BRIDGE_VERSION, DanlmHost, danlmMove, danlmRank } from './danlm-client.ts'
+import { handCodes, rankCode, toAction } from './njupt.ts'
+import { DanlmHost, danlmMove, danlmStep } from './danlm-client.ts'
 import { countBombs, isBomb, parseArgs, policyFromArgs, seeded, type Step } from './table.ts'
 
 const args = parseArgs(process.argv.slice(2))
@@ -38,8 +38,7 @@ async function playHand(host: DanlmHost, start: Match, ours: number) {
     const seat = s.turn, before = s
     if (teamOf(seat) === ours) s = policy ? takeTurn(s, seat, policy(s)) : botStep(s, strength)
     else {
-      const {cards, rank, flush} = await host.send({op: 'act', seat, lead: !s.target})
-      const {move, guessed: guess} = danlmMove(s, seat, cards, rank, flush)
+      const {move, guessed: guess} = danlmMove(s, seat, await host.send({op: 'act', seat, lead: !s.target}))
       if (guess) guessed++
       s = takeTurn(s, seat, move)
     }
@@ -51,8 +50,7 @@ async function playHand(host: DanlmHost, start: Match, ours: number) {
       holder: !before.target ? null : before.holder === partner(seat) ? 'partner' : 'opponent',
       holderSeat: before.target ? before.holder : -1, counts: before.hands.map(h => h.length),
       couldBeat: legal.length > 0, couldBeatWithoutBomb: legal.some(m => !isBomb(m)), finished: !!move && s.hands[seat].length === 0})
-    const result = await host.send({op: 'step', seat, cards: move ? move.cards.map(cardCode) : [],
-      rank: move ? danlmRank(move, s.level) : null, flush: move?.kind === 'flush'})
+    const result = await host.send(danlmStep(seat, move, s.level))
     if (result.guessed) guessed++
     if (!mock && s.phase === 'play' && result.player !== s.turn) throw new Error(`turn differs: DanLM ${result.player}, referee ${s.turn}`)
   }

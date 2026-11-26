@@ -49,6 +49,7 @@ node --disable-warning=ExperimentalWarning --experimental-strip-types tools/aren
 
 - 多次收集的資料可以分別 export，再用 `train.py --data a,b,c` 一起訓練，不必合併檔案。`--val a,b` 指定只用哪些資料的驗證集評分，例如加了 DAgger 資料的模型，仍可用純 DanLM 的驗證集來比較。
 - `export.ts` 依遊戲 id 分出約 5% 當驗證集；DanLM 的候選對應不到本遊戲宣告時記為 `unmapped`。
+- 候選依 DanLM 的牌型與點數對應到本遊戲的宣告。橋接第 3 版以前收集的資料，若某手牌用兩張逢人配、同一個點數可以宣告兩種牌型（見 arena README），兩邊引擎可能從那手起看到不同的桌面，整副略過（`oldBridgeSkipped`）。這種分歧也會讓同一圈後面的候選對應不到，舊資料裡大部分的 `unmapped` 可能就是這樣來的。
 - `train.py` 的損失是兩項相加：對 DanLM 各候選 Q 值的均方誤差，加上朝 DanLM 實際選擇的交叉熵（權重 `--ce-weight`）。驗證時看 `agree`，即模型最高分的出牌等於 DanLM 選擇的比例。`--limit N` 只用前 N 個決策，適合快速試跑。
 - arena 的 `run.ts`、`duplicate.ts`、`danlm.ts` 都接受 `--model`：我方座位改由模型出牌，進貢仍用遊戲的啟發式。
 

@@ -42,6 +42,17 @@ node --disable-warning=ExperimentalWarning --experimental-strip-types tools/aren
 
 DanLM 的引擎與模型只有 macOS ARM64 編譯檔，所以這一步要在 M 系列 Mac 上跑。裁判仍是本遊戲引擎；`danlm_host.py` 在 DanLM 引擎上開一個影子牌局，同步每一步，輪到 DanLM 的座位時問模型出什麼。兩邊引擎對某手牌或輪到誰有歧見時，該副牌會被跳過並印出原因（`skipped`），這個數字本身就是規則差異的量測。
 
+每一手在兩邊之間傳的是：實際的牌、DanLM 的牌型（`fullhouse`、`normalbomb`、`plate`、`tube`、`flushbomb` 等），以及 DanLM 叫法的點數。順子、同花順、三連對、鋼板報最大點，三帶對報三張的點數。
+
+只傳點數不夠。兩張逢人配能讓同一組牌宣告成兩種牌型，點數卻一樣：
+
+- 打 5 時，`S4 C4 D4 H5 H5` 可以是 4 的三帶對（帶一對 5），也可以是五張 4 的炸彈。
+- `C4 H4 C5 S5 H5 H5` 可以是鋼板 4·5，也可以是三連對 3·4·5。
+
+橋接第 3 版以前沒有傳牌型，兩邊會各挑一種。例如 DanLM 出三帶對，本遊戲記成炸彈；同一圈接著出的較大三帶對或四張炸彈，就會被判成 `DanLM played …, which this game does not allow here`，這副牌被跳過（收集資料時整場作廢）。這是傳遞的資訊不夠，不是規則差異；目前沒有發現兩邊規則不同的牌型。
+
+`guessed` 是找不到同牌型、同點數宣告的次數（四王不比點數）。接真的 DanLM 時，這個數字不為 0 表示兩邊對某種牌型的叫法還有差異。
+
 ```bash
 git clone --depth 1 https://github.com/dashidhy/DanLM.git ~/DanLM
 ```

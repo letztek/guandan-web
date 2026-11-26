@@ -17,10 +17,10 @@
 import { closeSync, mkdirSync, openSync, writeFileSync, writeSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Match } from '../../src/match.ts'
-import type { Move } from '../../src/rules.ts'
+import { allMoves, deck, type Move } from '../../src/rules.ts'
 import { readRecords, replay, type HandRecord } from '../arena/replay.ts'
-import { rankCode } from '../arena/njupt.ts'
-import { danlmMove } from '../arena/danlm-client.ts'
+import { cardCode, rankCode } from '../arena/njupt.ts'
+import { danlmMove, danlmRank } from '../arena/danlm-client.ts'
 import { parseArgs } from '../arena/table.ts'
 import { ACTION_DIM, ACTION_SCALE, FEATURE_VERSION, STATE_DIM, STATE_SCALE, actionFeatures, actionKey, stateFeatures } from './features.ts'
 
@@ -68,14 +68,30 @@ function hash(text: string) {
 const train = new Split('train'), val = new Split('val')
 const stats = {hands: 0, failedHands: 0, oldBridgeSkipped: 0, decisions: 0, teacherLabels: 0, unmapped: 0, chosenMissing: 0, merged: 0}
 
-// Before bridge version 2, DanLM and this game could read a run built with a
-// wild card differently (straight vs straight flush), so the two engines may
-// have disagreed about the table from that play on. Such hands are left out.
+// Older bridges could let DanLM and this game read a wild-card play differently,
+// so the two engines may have disagreed about the table from that play on. Such
+// hands are left out:
+// - before version 2, a run built with a wild card (straight vs straight flush);
+// - before version 3, cards with two wilds that declare two kinds under one rank
+//   (5-card bomb vs full house, two triples vs three pairs).
 const runKinds = ['straight', 'flush', 'pairs', 'steel']
 function divergedBeforeFix(record: HandRecord & {bridge?: number}) {
-  if ((record.bridge ?? 1) >= 2) return false
+  const bridge = record.bridge ?? 1
+  if (bridge >= 3) return false
   const wildCode = 'H' + rankCode(record.level)
-  return record.moves.some(m => m.kind && runKinds.includes(m.kind) && m.cards.includes(wildCode))
+  return record.moves.some(m => m.kind && m.cards.filter(c => c === wildCode).length === 2 && kindsShareRank(m.cards, record.level)) ||
+    (bridge < 2 && record.moves.some(m => m.kind && runKinds.includes(m.kind) && m.cards.includes(wildCode)))
+}
+function kindsShareRank(codes: string[], level: string) {
+  const pool = deck()
+  const cards = codes.map(code => pool.splice(pool.findIndex(c => cardCode(c) === code), 1)[0])
+  const kinds = new Map<string, string>()
+  return allMoves(cards, level, true).some(m => {
+    const key = danlmRank(m, level) + (m.kind === 'flush')
+    if (kinds.get(key) && kinds.get(key) !== m.kind) return true
+    kinds.set(key, m.kind)
+    return false
+  })
 }
 // move: the play DanLM chose here (for --model data, the recorded teacher, not the model's move).
 function decision(split: Split, s: Match, move: Move | null, q: [string, string, string, number][]) {
@@ -84,7 +100,7 @@ function decision(split: Split, s: Match, move: Move | null, q: [string, string,
     const cards = cardText.match(/../g) ?? []
     let candidate: Move | null
     try {
-      candidate = danlmMove(s, s.turn, cards, rank, /flush/i.test(type)).move
+      candidate = danlmMove(s, s.turn, {cards, rank, type}).move
     } catch {
       stats.unmapped++
       continue
@@ -112,7 +128,7 @@ for (const file of files) {
         let chosen = move
         if (teacher) {
           try {
-            chosen = danlmMove(s, s.turn, teacher.cards, teacher.rank, teacher.flush).move
+            chosen = danlmMove(s, s.turn, teacher).move
             stats.teacherLabels++
           } catch {
             stats.unmapped++

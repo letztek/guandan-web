@@ -14,7 +14,8 @@
 //   first                                the seat that leads the hand
 //   moves[]                              every play in order:
 //     seat, cards (codes, [] = pass), kind/value/label (this game's declaration),
-//     teacher: {cards, rank, flush}  with --model, on the model's seats: what DanLM would have played,
+//     teacher: {cards, rank, type, flush}  with --model, on the model's seats: what DanLM would have played
+//        (type from bridge version 3 on),
 //     q: [[type, rank, "cards", value], ...]  DanLM's values for its best candidates
 //        (this game's engine replays every state from dealt + exchange + moves),
 //     legal: DanLM's number of legal plays, agrees: DanLM's play is its best value
@@ -24,9 +25,9 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { gzipSync } from 'node:zlib'
 import { botStep, nextHand, partner, shufflePack, startMatch, takeTurn, type Match } from '../../src/match.ts'
-import { declaredRank, handCodes, cardCode, rankCode } from './njupt.ts'
+import { handCodes, cardCode, rankCode } from './njupt.ts'
 import { parseArgs, seeded } from './table.ts'
-import { BRIDGE_VERSION, DanlmHost, danlmMove, danlmRank } from './danlm-client.ts'
+import { BRIDGE_VERSION, DanlmHost, danlmMove, danlmStep } from './danlm-client.ts'
 import type { Move } from '../../src/rules.ts'
 
 const args = parseArgs(process.argv.slice(2))
@@ -93,18 +94,18 @@ async function playGame(host: DanlmHost, game: number) {
         const codes = (move ? move.cards.map(cardCode) : []).sort().join()
         totals.modelAgrees += Number(codes === [...reply.cards].sort().join())
       } else {
-        const mapped = danlmMove(s, seat, reply.cards, reply.rank, reply.flush)
+        const mapped = danlmMove(s, seat, reply)
         move = mapped.move
         if (mapped.guessed) totals.guessed++
       }
       s = takeTurn(s, seat, move)
-      const step = await host.send({op: 'step', seat, cards: move ? move.cards.map(cardCode) : [], rank: move ? danlmRank(move, level) : null, flush: move?.kind === 'flush'})
+      const step = await host.send(danlmStep(seat, move, level))
       if (step.guessed) totals.guessed++
       if (!mock && s.phase === 'play' && step.player !== s.turn) throw new Error(`turn differs: DanLM ${step.player}, referee ${s.turn}`)
       totals.decisions++
       if (reply.q) {totals.scored++; totals.agrees += Number(reply.argmaxAgrees)}
       moves.push({seat, cards: move ? move.cards.map(cardCode) : [], ...(move ? {kind: move.kind, value: move.value, label: move.label} : {}),
-        ...(modelSeat ? {teacher: {cards: reply.cards, rank: reply.rank, flush: reply.flush}} : {}),
+        ...(modelSeat ? {teacher: {cards: reply.cards, rank: reply.rank, type: reply.type, flush: reply.flush}} : {}),
         ...(reply.q && reply.legal > 1 ? {q: reply.q, legal: reply.legal, agrees: reply.argmaxAgrees} : {})})
     }
     const order = [...s.finish, ...[0, 1, 2, 3].filter(i => !s.finish.includes(i))]
