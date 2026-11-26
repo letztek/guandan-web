@@ -6,8 +6,10 @@
 //
 // 1. One scale for both sides: when consecutive decisions in a hand belong to
 //    opposite teams, V(next) should be about -V(this): correlation of V with
-//    -V(next) and the mean of their sum. Also at one moment, the mover's V
-//    against the next opponent's own view of the same position.
+//    -V(next) and the mean of their sum. Each seat judges from its own hidden
+//    hand, so even a perfect V cannot match exactly; the same correlation for
+//    consecutive same-team decisions is the reference for how close it can get.
+//    Also at one moment, the mover's V against the next opponent's own view.
 // 2. Better than guessing: V against how the hand really ended for the mover's
 //    team (mean squared error against always guessing the mean, share of hands
 //    where V picks the side that went out first), by stage of the hand.
@@ -33,6 +35,10 @@ const corr = (x: number[], y: number[]) => {
 const mean = (x: number[]) => x.reduce((a, b) => a + b, 0) / x.length
 
 const adjacent = {v: [] as number[], next: [] as number[]}
+// Reference: consecutive decisions by the same team. Partners cannot see each
+// other's hands either, so this is how closely two views of nearly the same
+// position can agree at all; the opposite-team figure should come close to it.
+const sameTeam = {v: [] as number[], next: [] as number[]}
 const moment = {mover: [] as number[], other: [] as number[]}
 const stages = new Map<string, {pred: number[], outcome: number[]}>()
 let hands = 0, positions = 0
@@ -49,6 +55,7 @@ for (const file of files) {
       const bucket = stages.get(stage) ?? {pred: [], outcome: []}
       bucket.pred.push(v); bucket.outcome.push(outcome); stages.set(stage, bucket)
       if (previous && previous.team !== seat % 2) { adjacent.v.push(previous.v); adjacent.next.push(v) }
+      if (previous && previous.team === seat % 2) { sameTeam.v.push(previous.v); sameTeam.next.push(v) }
       previous = {v, team: seat % 2}
       const opponent = (seat + 1) % 4
       if (s.hands[opponent].length) { moment.mover.push(v); moment.other.push(scorer.value(stateFeatures(s, opponent))) }
@@ -61,6 +68,8 @@ console.log(`${hands} held-out hands, ${positions} positions`)
 const sums = adjacent.v.map((v, i) => v + adjacent.next[i])
 console.log(`1. one scale: consecutive opposite-team decisions (${adjacent.v.length}): correlation of V with -V(next) ${corr(adjacent.v, adjacent.next.map(x => -x)).toFixed(3)},` +
   ` mean V + V(next) ${mean(sums).toFixed(3)}, mean |V| ${mean(adjacent.v.map(Math.abs)).toFixed(3)}`)
+console.log(`   reference, consecutive same-team decisions (${sameTeam.v.length}): correlation of V with V(next) ${corr(sameTeam.v, sameTeam.next).toFixed(3)},` +
+  ` mean V - V(next) ${mean(sameTeam.v.map((v, i) => v - sameTeam.next[i])).toFixed(3)}`)
 console.log(`   same moment, mover vs next opponent's own view: correlation with -V ${corr(moment.mover, moment.other.map(x => -x)).toFixed(3)},` +
   ` mean sum ${mean(moment.mover.map((v, i) => v + moment.other[i])).toFixed(3)}`)
 const all = {pred: [] as number[], outcome: [] as number[]}
