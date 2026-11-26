@@ -14,7 +14,7 @@ export function parseArgs(argv: string[]) {
     word.startsWith('--') ? [...pairs, [word.slice(2), all[i + 1]]] : pairs, [])) as Record<string, string | undefined>
 }
 // --model <path to model.json>: a trained move scorer plays our seats.
-// --search candidates,horizon,worlds[,z]: the model plus look-ahead (src/master-search.ts),
+// --search candidates,horizon,worlds[,z[,maxCards]]: the model plus look-ahead (src/master-search.ts),
 // with a fixed number of guessed worlds and no time limit, so runs are repeatable.
 export const searchStats = {decisions: 0, searched: 0, changed: 0, ms: 0, maxMs: 0}
 export async function policyFromArgs(args: Record<string, string | undefined>): Promise<Policy | undefined> {
@@ -24,8 +24,9 @@ export async function policyFromArgs(args: Record<string, string | undefined>): 
   if (!args.search) return s => scorer.choose(s).move
   const {searchMove} = await import('../../src/master-search.ts')
   const {publicTable, publicView} = await import('../../src/match.ts')
-  const [candidates, horizon, worlds, z] = args.search.split(',').map(Number)
-  const options = {candidates, horizon, worlds, budgetMs: Infinity, ...(Number.isFinite(z) ? {z} : {})}
+  const [candidates, horizon, worlds, z, maxCards] = args.search.split(',').map(Number)
+  const options = {candidates, horizon, worlds, budgetMs: Infinity, ...(Number.isFinite(z) ? {z} : {}),
+    ...(Number.isFinite(maxCards) ? {maxCards} : {})}
   return s => {
     const result = searchMove(publicView(s), publicTable(s, s.turn, true), scorer, options)
     searchStats.decisions++

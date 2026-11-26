@@ -16,6 +16,7 @@ export type SearchOptions = {
   budgetMs?: number     // stop sampling more guesses after this long
   gap?: number          // skip the search when the model's first choice leads by this much
   z?: number            // how sure a challenger must be (paired z score) to replace the first choice
+  maxCards?: number     // search only once at most this many cards are left in all hands (endgame)
   now?: () => number
 }
 export type SearchLine = {move: Move | null, prior: number, values: number[], mean: number}
@@ -25,26 +26,25 @@ export type SearchResult = {move: Move | null, prior: {move: Move | null, q: num
 const defaults = {candidates: 4, horizon: 1, worlds: 12, budgetMs: 600, gap: 0.6, z: 1.5}
 
 // Play `move` on one guess of the hidden hands, let the model play every seat
-// until `horizon` tricks have ended, and return the value for the root's team.
-// The value is the model's own estimate at the last decision of the look-ahead
-// (the play or pass that closed the trick), seen from that seat, so no extra
-// position has to be scored; a finished hand counts what it actually scored,
-// and a play that closes the trick by itself keeps the model's value for it.
+// until `horizon` tricks have ended, then on to the next decision by our own
+// side, and return the model's value there (its best Q, our side's view). A
+// finished hand counts what it actually scored. Values always come from our
+// side's own decisions: the model's Q for an opponent, sign flipped, is not on
+// the same scale (it overrates what our bombs win, for one).
 export function playForward(world: Match['hands'], view: Match, move: Move | null, prior: number,
     scorer: MoveScorer, horizon: number) {
   const root = view.turn
   const ours = (seat: number) => seat % 2 === root % 2
   let g: Match = {...view, hands: world.map(h => [...h])}
   g = takeTurn(g, root, move)
-  let value = prior
-  for (let ply = 0; ply < 60 && g.phase === 'play' && g.trick < view.trick + horizon; ply++) {
+  for (let ply = 0; ply < 80 && g.phase === 'play'; ply++) {
     const seat = g.turn
     const {move: next, values} = scorer.choose(g)
-    value = ours(seat) ? values[0].q : -values[0].q
+    if (g.trick >= view.trick + horizon && ours(seat)) return values[0].q
     g = takeTurn(g, seat, next)
   }
   if (g.phase === 'result') return (ours(g.finish[0]) ? 1 : -1) * g.gain
-  return value
+  return prior
 }
 
 const key = (m: Move | null) => m ? m.kind + '/' + m.label + '/' + m.cards.length : 'pass'
@@ -59,6 +59,9 @@ export function searchMove(view: Match, table: PublicTable, scorer: MoveScorer, 
   const result = (lines: SearchLine[] = [], worlds = 0, chosen = first): SearchResult =>
     ({move: chosen, prior, searched: lines.length > 0, lines, worlds, elapsedMs: clock() - started, changed: key(chosen) !== key(first)})
   if (prior.length < 2 || prior[0].q - prior[1].q > o.gap) return result()
+  // Guessed hands are least reliable early on, when most cards are unseen; there the
+  // search overrates plays that only work if the opponents lack specific cards.
+  if (o.maxCards !== undefined && view.hands.reduce((n, h) => n + h.length, 0) > o.maxCards) return result()
   const hand = view.hands[view.turn]
   // A play that goes out is final; nothing to compare.
   if (first && first.cards.length === hand.length) return result()
