@@ -10,7 +10,7 @@ import { appendFileSync } from 'node:fs'
 import { shufflePack, startMatch, type Match } from '../../src/match.ts'
 import { ranks } from '../../src/rules.ts'
 import type { Difficulty } from '../../src/difficulty.ts'
-import { parseArgs, policyFromArgs, seeded, Table } from './table.ts'
+import { parseArgs, policyFromArgs, searchStats, seeded, Table } from './table.ts'
 
 const args = parseArgs(process.argv.slice(2))
 if (!args.baselines) throw new Error('--baselines <path to DanLM/baselines> is required')
@@ -42,5 +42,7 @@ for (let deal = from; deal < from + deals; deal++) {
     }
   }
   total += score
-  console.log(`deal ${deal} level ${start.level}: duplicate ${score >= 0 ? '+' : ''}${score}  (running ${(total / (deal - from + 1)).toFixed(2)} per deal)`)
+  console.log(`deal ${deal} level ${start.level}: duplicate ${score >= 0 ? '+' : ''}${score}  (running ${(total / (deal - from + 1)).toFixed(2)} per deal)` +
+    (searchStats.decisions ? `  search: ${searchStats.searched}/${searchStats.decisions} searched, ${searchStats.changed} changed,` +
+      ` ${(searchStats.ms / searchStats.decisions).toFixed(0)} ms avg, ${searchStats.maxMs.toFixed(0)} ms max` : ''))
 }
